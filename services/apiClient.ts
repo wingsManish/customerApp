@@ -9,12 +9,15 @@
  */
 
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
 // Configuration
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'https://api.example.com';
+// API is disabled by default. Set apiEnabled: true in app.json to enable
+const API_ENABLED = Constants.expoConfig?.extra?.apiEnabled === true;
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 const MAX_RETRIES = 3;
 
@@ -148,6 +151,16 @@ class ApiClient {
    * Response: { data: { jwtToken: "..." } }
    */
   private async performAppTokenGeneration(): Promise<string | null> {
+    // If API is disabled, return mock token
+    if (!API_ENABLED) {
+      const mockToken = 'mock_app_token_' + Date.now();
+      await this.saveAppToken(mockToken);
+      if (__DEV__) {
+        console.log('[API MOCK] Generated mock app token');
+      }
+      return mockToken;
+    }
+
     try {
       const response = await fetch(`${this.baseURL}/apptoken`, {
         method: 'POST',
@@ -199,10 +212,20 @@ class ApiClient {
    */
   private async getUserToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(USER_TOKEN_KEY);
+      // SecureStore may not be available on web, fallback to AsyncStorage
+      if (Platform.OS === 'web') {
+        return await AsyncStorage.getItem(USER_TOKEN_KEY);
+      } else {
+        return await SecureStore.getItemAsync(USER_TOKEN_KEY);
+      }
     } catch (error) {
       console.error('Error getting user token:', error);
-      return null;
+      // Try fallback to AsyncStorage
+      try {
+        return await AsyncStorage.getItem(USER_TOKEN_KEY);
+      } catch {
+        return null;
+      }
     }
   }
 
@@ -211,10 +234,27 @@ class ApiClient {
    */
   async saveUserToken(token: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(USER_TOKEN_KEY, token);
+      // SecureStore may not be available on web, fallback to AsyncStorage
+      if (Platform.OS === 'web') {
+        await AsyncStorage.setItem(USER_TOKEN_KEY, token);
+      } else {
+        await SecureStore.setItemAsync(USER_TOKEN_KEY, token);
+      }
     } catch (error) {
       console.error('Error saving user token:', error);
-      throw new Error('Failed to save user token');
+      // Try fallback to AsyncStorage if SecureStore fails
+      try {
+        await AsyncStorage.setItem(USER_TOKEN_KEY, token);
+        if (__DEV__) {
+          console.warn('[API Client] SecureStore failed, using AsyncStorage fallback for user token');
+        }
+      } catch (fallbackError) {
+        console.error('Error saving user token to AsyncStorage:', fallbackError);
+        // Don't throw - allow app to continue even if token saving fails
+        if (__DEV__) {
+          console.warn('[API Client] Failed to save user token, but continuing...');
+        }
+      }
     }
   }
 
@@ -223,10 +263,20 @@ class ApiClient {
    */
   private async getRefreshToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      // SecureStore may not be available on web, fallback to AsyncStorage
+      if (Platform.OS === 'web') {
+        return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+      } else {
+        return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      }
     } catch (error) {
       console.error('Error getting refresh token:', error);
-      return null;
+      // Try fallback to AsyncStorage
+      try {
+        return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+      } catch {
+        return null;
+      }
     }
   }
 
@@ -235,10 +285,27 @@ class ApiClient {
    */
   async saveRefreshToken(token: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+      // SecureStore may not be available on web, fallback to AsyncStorage
+      if (Platform.OS === 'web') {
+        await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+      } else {
+        await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+      }
     } catch (error) {
       console.error('Error saving refresh token:', error);
-      throw new Error('Failed to save refresh token');
+      // Try fallback to AsyncStorage if SecureStore fails
+      try {
+        await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+        if (__DEV__) {
+          console.warn('[API Client] SecureStore failed, using AsyncStorage fallback for refresh token');
+        }
+      } catch (fallbackError) {
+        console.error('Error saving refresh token to AsyncStorage:', fallbackError);
+        // Don't throw - allow app to continue even if token saving fails
+        if (__DEV__) {
+          console.warn('[API Client] Failed to save refresh token, but continuing...');
+        }
+      }
     }
   }
 
@@ -248,8 +315,25 @@ class ApiClient {
   async removeAllTokens(): Promise<void> {
     try {
       await AsyncStorage.removeItem(APP_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(USER_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      
+      // Remove from SecureStore (mobile) or AsyncStorage (web)
+      if (Platform.OS === 'web') {
+        await AsyncStorage.removeItem(USER_TOKEN_KEY);
+        await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+      } else {
+        try {
+          await SecureStore.deleteItemAsync(USER_TOKEN_KEY);
+        } catch (error) {
+          // Fallback to AsyncStorage if SecureStore fails
+          await AsyncStorage.removeItem(USER_TOKEN_KEY);
+        }
+        try {
+          await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+        } catch (error) {
+          // Fallback to AsyncStorage if SecureStore fails
+          await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+        }
+      }
     } catch (error) {
       console.error('Error removing tokens:', error);
     }
@@ -294,6 +378,16 @@ class ApiClient {
    * Response: { data: { jwtToken: "..." } }
    */
   private async performUserTokenRefresh(): Promise<string | null> {
+    // If API is disabled, return mock token
+    if (!API_ENABLED) {
+      const mockToken = 'mock_user_token_' + Date.now();
+      await this.saveUserToken(mockToken);
+      if (__DEV__) {
+        console.log('[API MOCK] Generated mock user token');
+      }
+      return mockToken;
+    }
+
     try {
       const refreshToken = await this.getRefreshToken();
       if (!refreshToken) {
@@ -514,9 +608,201 @@ class ApiClient {
   }
 
   /**
+   * Generate mock response when API is disabled
+   * Returns realistic mock data based on the endpoint to allow app to progress
+   */
+  private generateMockResponse<T>(config: RequestConfig): ApiResponse<T> {
+    const url = config.url.toLowerCase();
+    const method = (config.method || 'GET').toUpperCase();
+
+    if (__DEV__) {
+      console.log(`[API MOCK] ${method} ${url} - API disabled, returning mock response`);
+    }
+
+    // Generate appropriate mock data based on endpoint
+    let mockData: any = null;
+    let message = 'Success (Mock)';
+
+    // Authentication endpoints
+    if (url.includes('/apptoken')) {
+      mockData = {
+        jwtToken: 'mock_app_token_' + Date.now(),
+      };
+      message = 'App token generated successfully';
+    } else if (url.includes('/login')) {
+      mockData = {
+        jwtToken: 'mock_user_token_' + Date.now(),
+        refreshToken: 'mock_refresh_token_' + Date.now(),
+        expiresIn: 3600,
+        user: {
+          id: 'mock_user_123',
+          orgId: 'mock_org_456',
+          roleId: 'mock_role_789',
+          regionCode: 'TZ',
+          clientType: 'customer',
+          username: 'mockuser',
+        },
+      };
+      message = 'Login successful';
+    } else if (url.includes('/refresh')) {
+      mockData = {
+        jwtToken: 'mock_user_token_refreshed_' + Date.now(),
+        expiresIn: 3600,
+      };
+      message = 'Token refreshed successfully';
+    }
+    // Company endpoints
+    else if (url.includes('/company') && method === 'POST') {
+      mockData = {
+        id: Math.floor(Math.random() * 10000),
+        name: 'Mock Company',
+        status: 1,
+        createdAt: new Date().toISOString(),
+      };
+      message = 'Company created successfully';
+    } else if (url.includes('/company') && method === 'PUT') {
+      mockData = {
+        id: Math.floor(Math.random() * 10000),
+        success: true,
+      };
+      message = 'Company updated successfully';
+    } else if (url.includes('/company') && method === 'GET') {
+      mockData = {
+        id: 1,
+        name: 'Mock Company',
+        ownerName: 'Mock Owner',
+        address1: 'Mock Address',
+        city: 'Mock City',
+        state: 'Mock State',
+        pinCode: '123456',
+        phone: '1234567890',
+        status: 1,
+      };
+      message = 'Company retrieved successfully';
+    }
+    // Bank details
+    else if (url.includes('/bankdetails')) {
+      mockData = {
+        id: Math.floor(Math.random() * 10000),
+        success: true,
+      };
+      message = 'Bank details updated successfully';
+    }
+    // Emergency details
+    else if (url.includes('/emergencydetails')) {
+      mockData = {
+        id: Math.floor(Math.random() * 10000),
+        success: true,
+      };
+      message = 'Emergency details updated successfully';
+    }
+    // Contact/Employee endpoints
+    else if (url.includes('/employee') || url.includes('/contact')) {
+      mockData = {
+        id: Math.floor(Math.random() * 10000),
+        employeeId: Math.floor(Math.random() * 10000),
+        success: true,
+      };
+      message = 'Contact information saved successfully';
+    }
+    // Attachment/Upload endpoints
+    else if (url.includes('/attachment') || url.includes('/upload')) {
+      mockData = {
+        id: Math.floor(Math.random() * 10000),
+        attachmentId: Math.floor(Math.random() * 10000),
+        fileName: 'mock_file.jpg',
+        fileUrl: 'https://example.com/mock_file.jpg',
+        success: true,
+      };
+      message = 'File uploaded successfully';
+    }
+    // Dashboard endpoints
+    else if (url.includes('/dashboard')) {
+      mockData = {
+        activeTrips: 1,
+        pendingTrips: 2,
+        requestedQuotes: 6,
+        completedTrips: 10,
+      };
+      message = 'Dashboard data retrieved successfully';
+    }
+    // Quotes endpoints
+    else if (url.includes('/quotes')) {
+      if (method === 'GET') {
+        mockData = [
+          {
+            id: 1,
+            quoteId: 'MOCK001',
+            status: 'Pending',
+            pickupLocation: 'Mock Location 1',
+            dropLocation: 'Mock Location 2',
+            cargoType: 'Mock Cargo',
+            weight: '100 Tons',
+          },
+        ];
+        message = 'Quotes retrieved successfully';
+      } else if (method === 'POST') {
+        mockData = {
+          id: Math.floor(Math.random() * 10000),
+          quoteId: 'MOCK' + Math.floor(Math.random() * 10000),
+          success: true,
+        };
+        message = 'Quote created successfully';
+      } else {
+        mockData = {
+          id: Math.floor(Math.random() * 10000),
+          success: true,
+        };
+        message = 'Quote updated successfully';
+      }
+    }
+    // Trips endpoints
+    else if (url.includes('/trip')) {
+      mockData = [
+        {
+          id: 1,
+          tripId: 'TRIP001',
+          status: 'In Progress',
+          fromLocation: 'Mock Location A',
+          toLocation: 'Mock Location B',
+          driverName: 'Mock Driver',
+          truckNumber: 'MOCK123',
+        },
+      ];
+      message = 'Trips retrieved successfully';
+    }
+    // Default: return success with empty object for POST/PUT/PATCH, empty array for GET
+    else {
+      if (method === 'GET') {
+        mockData = [];
+      } else {
+        mockData = {
+          id: Math.floor(Math.random() * 10000),
+          success: true,
+        };
+      }
+      message = 'Operation completed successfully';
+    }
+
+    return {
+      statusCode: 200,
+      success: true,
+      message,
+      data: mockData as T,
+    };
+  }
+
+  /**
    * Main request method
    */
   async request<T>(config: RequestConfig): Promise<ApiResponse<T>> {
+    // If API is disabled, return mock response
+    if (!API_ENABLED) {
+      // Add a small delay to simulate network latency
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return this.generateMockResponse<T>(config);
+    }
+
     // Check network connectivity
     await this.checkNetwork();
 

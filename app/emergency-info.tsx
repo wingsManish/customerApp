@@ -18,7 +18,13 @@ import { SelectField } from '@/components/SelectField';
 import { CountryCodePicker, Country } from '@/components/CountryCodePicker';
 import { NavigationButtons } from '@/components/NavigationButtons';
 import { getSession, updateSession } from '@/services/sessionService';
-import { isRequired, isValidPhoneNumber } from '@/utils/validation';
+import {
+  isRequired,
+  isValidPhoneNumber,
+  minLength,
+  maxLength,
+} from '@/utils/validation';
+import { safeGoBack } from '@/utils/navigation';
 
 const RELATIONSHIP_OPTIONS = [
   { label: 'Spouse', value: 'spouse' },
@@ -109,30 +115,61 @@ export default function EmergencyInfoScreen() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Contact Name validation
     if (!isRequired(contactName)) {
       newErrors.contactName = 'Contact name is required';
+    } else if (!minLength(contactName, 2)) {
+      newErrors.contactName = 'Contact name must be at least 2 characters';
+    } else if (!maxLength(contactName, 100)) {
+      newErrors.contactName = 'Contact name must be no more than 100 characters';
     }
 
+    // Phone Number validation
     if (!isRequired(contactPhone)) {
       newErrors.contactPhone = 'Phone number is required';
     } else if (!isValidPhoneNumber(contactPhone)) {
-      newErrors.contactPhone = 'Please enter a valid phone number';
+      newErrors.contactPhone = 'Phone number must be 7-15 digits';
     }
 
+    // Relationship validation
     if (!isRequired(relationship)) {
       newErrors.relationship = 'Relationship is required';
     }
 
+    // Address validation
     if (!isRequired(address)) {
       newErrors.address = 'Emergency address is required';
+    } else if (!minLength(address, 5)) {
+      newErrors.address = 'Address must be at least 5 characters';
+    } else if (!maxLength(address, 200)) {
+      newErrors.address = 'Address must be no more than 200 characters';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // Clear error when user starts typing
+  const handleFieldChange = (fieldName: string, value: string) => {
+    if (errors[fieldName]) {
+      setErrors({ ...errors, [fieldName]: '' });
+    }
+    
+    switch (fieldName) {
+      case 'contactName':
+        setContactName(value);
+        break;
+      case 'contactPhone':
+        setContactPhone(value.replace(/[^0-9]/g, ''));
+        break;
+      case 'address':
+        setAddress(value);
+        break;
+    }
+  };
+
   const handlePrevious = () => {
-    router.back();
+    safeGoBack('/upload-documents');
   };
 
   const handleCreate = async () => {
@@ -212,11 +249,12 @@ export default function EmergencyInfoScreen() {
             <FormField
               label="Alternate Contact Name"
               value={contactName}
-              onChangeText={setContactName}
+              onChangeText={(text) => handleFieldChange('contactName', text)}
               placeholder="Enter contact name"
               error={errors.contactName}
               fontFamily={fontFamilyRegular}
               autoCapitalize="words"
+              maxLength={100}
             />
 
             {/* Alternate Phone Number Field with Country Code */}
@@ -237,7 +275,7 @@ export default function EmergencyInfoScreen() {
                   <TextInput
                     style={[styles.phoneInput, { fontFamily: fontFamilyRegular }]}
                     value={contactPhone}
-                    onChangeText={setContactPhone}
+                    onChangeText={(text) => handleFieldChange('contactPhone', text)}
                     placeholder="Enter phone number"
                     placeholderTextColor="#999999"
                     keyboardType="phone-pad"
@@ -256,7 +294,12 @@ export default function EmergencyInfoScreen() {
               label="Relationship"
               value={relationship}
               options={RELATIONSHIP_OPTIONS}
-              onSelect={setRelationship}
+              onSelect={(value) => {
+                setRelationship(value);
+                if (errors.relationship) {
+                  setErrors({ ...errors, relationship: '' });
+                }
+              }}
               placeholder="Select relationship"
               error={errors.relationship}
               fontFamily={fontFamilyRegular}
@@ -265,13 +308,14 @@ export default function EmergencyInfoScreen() {
             <FormField
               label="Emergency Address"
               value={address}
-              onChangeText={setAddress}
+              onChangeText={(text) => handleFieldChange('address', text)}
               placeholder="Enter emergency address"
               error={errors.address}
               fontFamily={fontFamilyRegular}
               multiline
               numberOfLines={3}
               autoCapitalize="sentences"
+              maxLength={200}
             />
 
             {/* Navigation Buttons */}

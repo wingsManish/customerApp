@@ -16,7 +16,16 @@ import { FormField } from '@/components/FormField';
 import { SelectField } from '@/components/SelectField';
 import { NavigationButtons } from '@/components/NavigationButtons';
 import { getSession, updateSession } from '@/services/sessionService';
-import { isRequired } from '@/utils/validation';
+import {
+  isRequired,
+  isValidTIN,
+  isValidAccountNumber,
+  isValidIFSC,
+  isValidMICR,
+  minLength,
+  maxLength,
+} from '@/utils/validation';
+import { safeGoBack } from '@/utils/navigation';
 
 const ACCOUNT_TYPES = [
   { label: 'Savings', value: 'savings' },
@@ -71,41 +80,91 @@ export default function BankDetailsScreen() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // TIN Number validation
     if (!isRequired(tinNumber)) {
       newErrors.tinNumber = 'TIN number is required';
+    } else if (!isValidTIN(tinNumber)) {
+      newErrors.tinNumber = 'TIN number must be 9-15 alphanumeric characters';
     }
 
+    // Account Number validation
     if (!isRequired(accountNumber)) {
       newErrors.accountNumber = 'Bank account number is required';
+    } else if (!isValidAccountNumber(accountNumber)) {
+      newErrors.accountNumber = 'Account number must be 9-18 digits';
     }
 
+    // Bank Name validation
     if (!isRequired(bankName)) {
       newErrors.bankName = 'Bank name is required';
+    } else if (!minLength(bankName, 2)) {
+      newErrors.bankName = 'Bank name must be at least 2 characters';
+    } else if (!maxLength(bankName, 100)) {
+      newErrors.bankName = 'Bank name must be no more than 100 characters';
     }
 
+    // Account Type validation
     if (!isRequired(accountType)) {
       newErrors.accountType = 'Account type is required';
     }
 
+    // Bank Branch validation
     if (!isRequired(bankBranch)) {
       newErrors.bankBranch = 'Bank branch is required';
+    } else if (!minLength(bankBranch, 2)) {
+      newErrors.bankBranch = 'Bank branch must be at least 2 characters';
+    } else if (!maxLength(bankBranch, 100)) {
+      newErrors.bankBranch = 'Bank branch must be no more than 100 characters';
     }
 
-    // IFSC and MICR are optional but validate format if provided
-    if (ifsc && ifsc.length !== 11) {
-      newErrors.ifsc = 'IFSC code must be 11 characters';
+    // IFSC validation (optional but validate format if provided)
+    if (ifsc && ifsc.trim() !== '') {
+      if (!isValidIFSC(ifsc)) {
+        newErrors.ifsc = 'IFSC code must be 11 characters (e.g., ABCD0123456)';
+      }
     }
 
-    if (micr && micr.length !== 9) {
-      newErrors.micr = 'MICR code must be 9 digits';
+    // MICR validation (optional but validate format if provided)
+    if (micr && micr.trim() !== '') {
+      if (!isValidMICR(micr)) {
+        newErrors.micr = 'MICR code must be 9 digits';
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // Clear error when user starts typing
+  const handleFieldChange = (fieldName: string, value: string) => {
+    if (errors[fieldName]) {
+      setErrors({ ...errors, [fieldName]: '' });
+    }
+    
+    switch (fieldName) {
+      case 'tinNumber':
+        setTinNumber(value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+        break;
+      case 'accountNumber':
+        setAccountNumber(value.replace(/[^0-9]/g, ''));
+        break;
+      case 'bankName':
+        setBankName(value);
+        break;
+      case 'bankBranch':
+        setBankBranch(value);
+        break;
+      case 'ifsc':
+        setIfsc(value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+        break;
+      case 'micr':
+        setMicr(value.replace(/[^0-9]/g, ''));
+        break;
+    }
+  };
+
   const handlePrevious = () => {
-    router.back();
+    safeGoBack('/contact-info');
   };
 
   const handleNext = async () => {
@@ -179,38 +238,46 @@ export default function BankDetailsScreen() {
             <FormField
               label="TIN Number"
               value={tinNumber}
-              onChangeText={setTinNumber}
+              onChangeText={(text) => handleFieldChange('tinNumber', text)}
               placeholder="Enter TIN number"
               error={errors.tinNumber}
               fontFamily={fontFamilyRegular}
               autoCapitalize="characters"
+              maxLength={15}
             />
 
             <FormField
               label="Bank Account Number"
               value={accountNumber}
-              onChangeText={setAccountNumber}
+              onChangeText={(text) => handleFieldChange('accountNumber', text)}
               placeholder="Enter account number"
               error={errors.accountNumber}
               keyboardType="numeric"
               fontFamily={fontFamilyRegular}
+              maxLength={18}
             />
 
             <FormField
               label="Bank Name"
               value={bankName}
-              onChangeText={setBankName}
+              onChangeText={(text) => handleFieldChange('bankName', text)}
               placeholder="Enter bank name"
               error={errors.bankName}
               fontFamily={fontFamilyRegular}
               autoCapitalize="words"
+              maxLength={100}
             />
 
             <SelectField
               label="Account Type"
               value={accountType}
               options={ACCOUNT_TYPES}
-              onSelect={setAccountType}
+              onSelect={(value) => {
+                setAccountType(value);
+                if (errors.accountType) {
+                  setErrors({ ...errors, accountType: '' });
+                }
+              }}
               placeholder="Select account type"
               error={errors.accountType}
               fontFamily={fontFamilyRegular}
@@ -219,17 +286,18 @@ export default function BankDetailsScreen() {
             <FormField
               label="Bank Branch"
               value={bankBranch}
-              onChangeText={setBankBranch}
+              onChangeText={(text) => handleFieldChange('bankBranch', text)}
               placeholder="Enter bank branch"
               error={errors.bankBranch}
               fontFamily={fontFamilyRegular}
               autoCapitalize="words"
+              maxLength={100}
             />
 
             <FormField
-              label="IFSC"
+              label="IFSC (Optional)"
               value={ifsc}
-              onChangeText={(text) => setIfsc(text.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+              onChangeText={(text) => handleFieldChange('ifsc', text)}
               placeholder="Enter IFSC code"
               error={errors.ifsc}
               fontFamily={fontFamilyRegular}
@@ -238,9 +306,9 @@ export default function BankDetailsScreen() {
             />
 
             <FormField
-              label="MICR"
+              label="MICR (Optional)"
               value={micr}
-              onChangeText={(text) => setMicr(text.replace(/[^0-9]/g, ''))}
+              onChangeText={(text) => handleFieldChange('micr', text)}
               placeholder="Enter MICR code"
               error={errors.micr}
               keyboardType="numeric"

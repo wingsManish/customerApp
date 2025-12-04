@@ -82,8 +82,10 @@ export default function RootLayout() {
             <Stack.Screen name="login" />
             <Stack.Screen name="otp-verification" />
             <Stack.Screen name="user-type-selection" />
+            <Stack.Screen name="select-company" />
             <Stack.Screen name="personal-info" />
             <Stack.Screen name="company-details" />
+            <Stack.Screen name="company-profile" />
             <Stack.Screen name="contact-info" />
             <Stack.Screen name="bank-details" />
             <Stack.Screen name="upload-documents" />

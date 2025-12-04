@@ -13,13 +13,18 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import Constants from 'expo-constants';
 
 import { verifyOTP, sendOTP } from '@/services/authService';
 import { saveSession } from '@/services/sessionService';
 import { OTPInput } from '@/components/OTPInput';
+import { safeGoBack } from '@/utils/navigation';
 
 const OTP_LENGTH = 6;
 const RESEND_INTERVAL = 30;
+
+// Check if API is enabled
+const API_ENABLED = Constants.expoConfig?.extra?.apiEnabled === true;
 
 export default function OTPVerificationScreen() {
   const router = useRouter();
@@ -29,7 +34,9 @@ export default function OTPVerificationScreen() {
   const phoneNumber = useMemo(() => (params.phoneNumber as string) || '', [params.phoneNumber]);
   const initialSessionId = useMemo(() => (params.sessionId as string) || '', [params.sessionId]);
 
-  const [sessionId, setSessionId] = useState(initialSessionId);
+  // Generate mock sessionId if missing and API is disabled
+  const defaultSessionId = initialSessionId || (API_ENABLED ? '' : 'mock_session_' + Date.now());
+  const [sessionId, setSessionId] = useState(defaultSessionId);
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -37,6 +44,14 @@ export default function OTPVerificationScreen() {
   const [resendTimer, setResendTimer] = useState(RESEND_INTERVAL);
   const [isResending, setIsResending] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+
+  // If phoneNumber is missing from params, try to get it from session
+  useEffect(() => {
+    if (!phoneNumber && !API_ENABLED) {
+      // In mock mode, allow proceeding without phoneNumber
+      // The verifyOTP function will handle it
+    }
+  }, [phoneNumber]);
 
   // Determine font family based on platform
   const fontFamilySemiBold = Platform.select({
@@ -66,11 +81,6 @@ export default function OTPVerificationScreen() {
 
   // Auto-verify when OTP is complete
   const handleOTPComplete = async (otpValue: string) => {
-    if (!phoneNumber || !sessionId) {
-      setError('Missing verification details. Please go back and request a new code.');
-      return;
-    }
-
     await handleVerify(otpValue);
   };
 
@@ -82,9 +92,22 @@ export default function OTPVerificationScreen() {
       return;
     }
 
-    if (!phoneNumber || !sessionId) {
-      setError('Missing verification details. Please go back and request a new code.');
-      return;
+    // When API is disabled, we can proceed without phoneNumber/sessionId
+    // Otherwise, require both
+    if (API_ENABLED) {
+      if (!phoneNumber || !sessionId) {
+        setError('Missing verification details. Please go back and request a new code.');
+        return;
+      }
+    }
+
+    // Use provided values or generate mock ones for testing
+    const currentPhoneNumber = phoneNumber || 'mock_phone_' + Date.now();
+    const currentSessionId = sessionId || 'mock_session_' + Date.now();
+    
+    // Update state if we generated mock values
+    if (!sessionId) {
+      setSessionId(currentSessionId);
     }
 
     try {
@@ -92,7 +115,7 @@ export default function OTPVerificationScreen() {
       setError('');
       setSuccessMessage('');
       
-      const response = await verifyOTP(phoneNumber, otp, sessionId);
+      const response = await verifyOTP(currentPhoneNumber, otp, currentSessionId);
 
       if (response.success) {
         setSuccessMessage('Verification successful!');
@@ -100,8 +123,8 @@ export default function OTPVerificationScreen() {
         
         // Save session with sessionId and authToken
         await saveSession({
-          phoneNumber,
-          sessionId,
+          phoneNumber: currentPhoneNumber,
+          sessionId: currentSessionId,
           authToken: response.token,
           profileCompleted: false,
         });
@@ -184,7 +207,7 @@ export default function OTPVerificationScreen() {
           {/* Back Button */}
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeGoBack('/login')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="arrow-back" size={24} color="#000000" />
@@ -197,8 +220,19 @@ export default function OTPVerificationScreen() {
             </Text>
 
             <Text style={[styles.description, { fontFamily: fontFamilyRegular }]}>
-              Enter the verification code we just sent to your number{'\n'}
-              <Text style={styles.phoneNumber}>{formatPhoneNumber(phoneNumber)}</Text>
+              {phoneNumber ? (
+                <>
+                  Enter the verification code we just sent to your number{'\n'}
+                  <Text style={styles.phoneNumber}>{formatPhoneNumber(phoneNumber)}</Text>
+                </>
+              ) : (
+                <>
+                  Enter the verification code{'\n'}
+                  {!API_ENABLED && (
+                    <Text style={styles.phoneNumber}>Use 123456 for testing</Text>
+                  )}
+                </>
+              )}
             </Text>
 
             {/* Success Message */}

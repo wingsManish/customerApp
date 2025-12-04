@@ -19,7 +19,14 @@ import { SelectField } from '@/components/SelectField';
 import { CountryCodePicker, Country } from '@/components/CountryCodePicker';
 import { NavigationButtons } from '@/components/NavigationButtons';
 import { getSession, updateSession } from '@/services/sessionService';
-import { isValidEmail, isRequired } from '@/utils/validation';
+import {
+  isValidEmail,
+  isRequired,
+  isValidPhoneNumber,
+  minLength,
+  maxLength,
+} from '@/utils/validation';
+import { safeGoBack } from '@/utils/navigation';
 
 const COMMUNICATION_MODES = [
   { label: 'SMS', value: 'sms' },
@@ -117,16 +124,21 @@ export default function ContactInfoScreen() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Mobile validation
     if (!isRequired(mobile)) {
       newErrors.mobile = 'Mobile number is required';
+    } else if (!isValidPhoneNumber(mobile)) {
+      newErrors.mobile = 'Phone number must be 7-15 digits';
     }
 
+    // Email validation
     if (!isRequired(email)) {
       newErrors.email = 'Email is required';
     } else if (!isValidEmail(email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
+    // Communication Mode validation
     if (!isRequired(communicationMode)) {
       newErrors.communicationMode = 'Please select a communication mode';
     }
@@ -135,8 +147,24 @@ export default function ContactInfoScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Clear error when user starts typing
+  const handleFieldChange = (fieldName: string, value: string) => {
+    if (errors[fieldName]) {
+      setErrors({ ...errors, [fieldName]: '' });
+    }
+    
+    switch (fieldName) {
+      case 'mobile':
+        setMobile(value.replace(/[^0-9]/g, ''));
+        break;
+      case 'email':
+        setEmail(value);
+        break;
+    }
+  };
+
   const handlePrevious = () => {
-    router.back();
+    safeGoBack('/personal-info');
   };
 
   const handleNext = async () => {
@@ -226,7 +254,7 @@ export default function ContactInfoScreen() {
                     <TextInput
                       style={[styles.phoneInput, { fontFamily: fontFamilyRegular }]}
                       value={mobile}
-                      onChangeText={setMobile}
+                      onChangeText={(text) => handleFieldChange('mobile', text)}
                       placeholder="Enter mobile number"
                       placeholderTextColor="#999999"
                       keyboardType="phone-pad"
@@ -244,7 +272,7 @@ export default function ContactInfoScreen() {
               <FormField
                 label="Email ID"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => handleFieldChange('email', text)}
                 placeholder="Enter your email"
                 error={errors.email}
                 keyboardType="email-address"
@@ -252,13 +280,19 @@ export default function ContactInfoScreen() {
                 fontFamily={fontFamilyRegular}
                 autoComplete="email"
                 textContentType="emailAddress"
+                maxLength={100}
               />
 
               <SelectField
                 label="Mode of Communication"
                 value={communicationMode}
                 options={COMMUNICATION_MODES}
-                onSelect={setCommunicationMode}
+                onSelect={(value) => {
+                  setCommunicationMode(value);
+                  if (errors.communicationMode) {
+                    setErrors({ ...errors, communicationMode: '' });
+                  }
+                }}
                 placeholder="Select communication mode"
                 error={errors.communicationMode}
                 fontFamily={fontFamilyRegular}

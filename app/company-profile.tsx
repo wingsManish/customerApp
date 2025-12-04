@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
 import { Image } from 'expo-image';
 import { loadSvgFromAsset } from '@/utils/svgLoader';
+import { safeGoBack } from '@/utils/navigation';
 
 const companySvg = require('@/assets/screen-asset/company.svg');
 const documentSvg = require('@/assets/screen-asset/container.svg');
@@ -181,7 +182,7 @@ export default function CompanyProfileScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeGoBack('/home')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <View style={styles.backButtonCircle}>

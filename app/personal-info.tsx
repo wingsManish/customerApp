@@ -20,7 +20,14 @@ import Flag from 'react-native-country-flag';
 import { FormField } from '@/components/FormField';
 import { Country } from '@/components/CountryCodePicker';
 import { getSession, updateSession } from '@/services/sessionService';
-import { isValidEmail, isRequired } from '@/utils/validation';
+import {
+  isValidEmail,
+  isRequired,
+  isValidPhoneNumber,
+  minLength,
+  maxLength,
+} from '@/utils/validation';
+import { safeGoBack } from '@/utils/navigation';
 
 export default function PersonalInfoScreen() {
   const router = useRouter();
@@ -156,14 +163,23 @@ export default function PersonalInfoScreen() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Name validation
     if (!isRequired(name)) {
       newErrors.name = 'Name is required';
+    } else if (!minLength(name, 2)) {
+      newErrors.name = 'Name must be at least 2 characters';
+    } else if (!maxLength(name, 100)) {
+      newErrors.name = 'Name must be no more than 100 characters';
     }
 
+    // Phone Number validation
     if (!isRequired(phoneNumber)) {
       newErrors.phoneNumber = 'Phone number is required';
+    } else if (!isValidPhoneNumber(phoneNumber)) {
+      newErrors.phoneNumber = 'Phone number must be 7-15 digits';
     }
 
+    // Email validation
     if (!isRequired(email)) {
       newErrors.email = 'Email is required';
     } else if (!isValidEmail(email)) {
@@ -172,6 +188,25 @@ export default function PersonalInfoScreen() {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Clear error when user starts typing
+  const handleFieldChange = (fieldName: string, value: string) => {
+    if (errors[fieldName]) {
+      setErrors({ ...errors, [fieldName]: '' });
+    }
+    
+    switch (fieldName) {
+      case 'name':
+        setName(value);
+        break;
+      case 'phoneNumber':
+        setPhoneNumber(value.replace(/[^0-9]/g, ''));
+        break;
+      case 'email':
+        setEmail(value);
+        break;
+    }
   };
 
   const handleContinue = async () => {
@@ -226,7 +261,7 @@ export default function PersonalInfoScreen() {
           {/* Back Button */}
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeGoBack('/user-type-selection')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="arrow-back" size={24} color="#000000" />
@@ -260,11 +295,12 @@ export default function PersonalInfoScreen() {
               <FormField
                 label="Name"
                 value={name}
-                onChangeText={setName}
+                onChangeText={(text) => handleFieldChange('name', text)}
                 placeholder="Enter your full name"
                 error={errors.name}
                 fontFamily={fontFamilyRegular}
                 autoCapitalize="words"
+                maxLength={100}
               />
 
               {/* Phone Number Field with Country Code */}
@@ -300,7 +336,7 @@ export default function PersonalInfoScreen() {
               <FormField
                 label="Email ID"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => handleFieldChange('email', text)}
                 placeholder="Enter your email"
                 error={errors.email}
                 keyboardType="email-address"
@@ -308,6 +344,7 @@ export default function PersonalInfoScreen() {
                 fontFamily={fontFamilyRegular}
                 autoComplete="email"
                 textContentType="emailAddress"
+                maxLength={100}
               />
             </View>
 

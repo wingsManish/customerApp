@@ -17,6 +17,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { DocumentUpload } from '@/components/DocumentUpload';
 import { NavigationButtons } from '@/components/NavigationButtons';
 import { getSession, updateSession, DocumentFile } from '@/services/sessionService';
+import { safeGoBack } from '@/utils/navigation';
 
 type DocumentKey = 'registration' | 'tin';
 
@@ -142,7 +143,7 @@ export default function UploadDocumentsScreen() {
   };
 
   const handlePrevious = () => {
-    router.back();
+    safeGoBack('/bank-details');
   };
 
   const handleNext = async () => {

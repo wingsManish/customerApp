@@ -64,7 +64,8 @@
           "photosPermission": "The app accesses your photos to let you upload profile pictures and documents.",
           "cameraPermission": "The app accesses your camera to let you take photos for your profile and documents."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -74,7 +75,9 @@
       "router": {},
       "eas": {
         "projectId": "978cae1e-ba30-4bd1-9c0d-0d2a8b23d20c"
-      }
+      },
+      "apiEnabled": false,
+      "apiUrl": "https://api.example.com"
     }
   }
 }

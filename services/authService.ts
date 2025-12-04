@@ -9,7 +9,11 @@
  * Matches backend API specification.
  */
 
+import Constants from 'expo-constants';
 import { apiClient, getErrorMessage, ApiResponse } from './apiClient';
+
+// Check if API is enabled
+const API_ENABLED = Constants.expoConfig?.extra?.apiEnabled === true;
 
 // API Request/Response Types
 export interface LoginRequest {
@@ -60,6 +64,38 @@ export const login = async (
   username: string,
   password: string
 ): Promise<ApiResponse<LoginResponse>> => {
+  // If API is disabled, return mock response
+  if (!API_ENABLED) {
+    if (__DEV__) {
+      console.log('[AuthService] Login - API disabled, returning mock response');
+    }
+
+    const mockResponse: LoginResponse = {
+      jwtToken: 'mock_user_token_' + Date.now(),
+      refreshToken: 'mock_refresh_token_' + Date.now(),
+      expiresIn: 3600,
+      user: {
+        id: 'mock_user_123',
+        orgId: 'mock_org_456',
+        roleId: 'mock_role_789',
+        regionCode: 'TZ',
+        clientType: 'customer',
+        username: username || 'mockuser',
+      },
+    };
+
+    // Save mock tokens
+    await apiClient.saveUserToken(mockResponse.jwtToken);
+    await apiClient.saveRefreshToken(mockResponse.refreshToken);
+
+    return {
+      statusCode: 200,
+      success: true,
+      message: 'Login successful (Mock)',
+      data: mockResponse,
+    };
+  }
+
   try {
     // Get App Token first (required for login endpoint)
     const appToken = await apiClient.generateAppToken();
@@ -251,6 +287,20 @@ export interface SendOTPResponse {
  * @returns Promise with OTP response
  */
 export const sendOTP = async (phoneNumber: string): Promise<SendOTPResponse> => {
+  // If API is disabled, return mock success with session ID
+  if (!API_ENABLED) {
+    if (__DEV__) {
+      console.log('[AuthService] Send OTP - API disabled, returning mock response');
+      console.log(`[AuthService] Use OTP: ${DEFAULT_TEST_OTP} to proceed`);
+    }
+
+    return {
+      success: true,
+      message: `OTP sent successfully. Use ${DEFAULT_TEST_OTP} for testing.`,
+      sessionId: 'mock_session_' + Date.now(),
+    };
+  }
+
   try {
     const response = await apiClient.post<{ sessionId: string; message: string }>(
       '/auth/send-otp',
@@ -280,6 +330,12 @@ export const sendOTP = async (phoneNumber: string): Promise<SendOTPResponse> => 
 };
 
 /**
+ * Default test OTP code (works when API is disabled)
+ * Use this OTP to proceed through verification during development/testing
+ */
+const DEFAULT_TEST_OTP = '123456';
+
+/**
  * Verify OTP (if backend supports OTP)
  * 
  * @param phoneNumber - Phone number
@@ -292,6 +348,32 @@ export const verifyOTP = async (
   otp: string,
   sessionId: string
 ): Promise<{ success: boolean; token?: string; error?: string }> => {
+  // If API is disabled, accept default test OTP
+  if (!API_ENABLED) {
+    if (otp === DEFAULT_TEST_OTP) {
+      if (__DEV__) {
+        console.log('[AuthService] OTP Verification - API disabled, accepting test OTP');
+      }
+
+      const mockToken = 'mock_user_token_' + Date.now();
+      const mockRefreshToken = 'mock_refresh_token_' + Date.now();
+
+      // Save mock tokens
+      await apiClient.saveUserToken(mockToken);
+      await apiClient.saveRefreshToken(mockRefreshToken);
+
+      return {
+        success: true,
+        token: mockToken,
+      };
+    } else {
+      return {
+        success: false,
+        error: `Invalid OTP. Use ${DEFAULT_TEST_OTP} for testing (API disabled)`,
+      };
+    }
+  }
+
   try {
     const response = await apiClient.post<LoginResponse>(
       '/auth/verify-otp',
