@@ -191,9 +191,11 @@ const styles = StyleSheet.create({
     color: '#C8202F',
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusText: {
     fontSize: 12,

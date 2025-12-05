@@ -9,14 +9,15 @@ import { Image } from 'expo-image';
 
 const homeActiveSvg = require('@/assets/screen-asset/home-active.svg');
 const homeInactiveSvg = require('@/assets/screen-asset/home-inactive.svg');
-const quoteButtonSvg = require('@/assets/screen-asset/quote-button.svg');
+const quoteActiveSvg = require('@/assets/screen-asset/quote-active.svg');
+const quoteInactiveSvg = require('@/assets/screen-asset/quote-button.svg');
 const tripsActiveSvg = require('@/assets/screen-asset/trips-active.svg');
 const tripsInactiveSvg = require('@/assets/screen-asset/trips-inactive.svg');
 const invoiceButtonSvg = require('@/assets/screen-asset/invoice-button.svg');
 
 const tabs = [
   { name: 'home', label: 'Home', activeSvg: homeActiveSvg, inactiveSvg: homeInactiveSvg },
-  { name: 'quotes', label: 'Quotes', activeSvg: quoteButtonSvg, inactiveSvg: quoteButtonSvg },
+  { name: 'quotes', label: 'Quotes', activeSvg: quoteActiveSvg, inactiveSvg: quoteInactiveSvg },
   { name: 'trips', label: 'Trips', activeSvg: tripsActiveSvg, inactiveSvg: tripsInactiveSvg },
   { name: 'invoice', label: 'Invoice', activeSvg: invoiceButtonSvg, inactiveSvg: invoiceButtonSvg },
 ];
@@ -33,7 +34,8 @@ export const BottomTabNavigator: React.FC = () => {
       const allSvgs = [
         homeActiveSvg,
         homeInactiveSvg,
-        quoteButtonSvg,
+        quoteActiveSvg,
+        quoteInactiveSvg,
         tripsActiveSvg,
         tripsInactiveSvg,
         invoiceButtonSvg,

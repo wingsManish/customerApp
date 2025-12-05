@@ -96,6 +96,7 @@ export default function RootLayout() {
             <Stack.Screen name="orders" />
             <Stack.Screen name="quotes" />
             <Stack.Screen name="trips" />
+            <Stack.Screen name="trips/[tripId]" />
             <Stack.Screen name="invoice" />
             <Stack.Screen name="profile" />
           </Stack>

@@ -26,6 +26,7 @@ interface TripCardProps {
   date?: string;
   weight?: string;
   onPress?: () => void;
+  variant?: 'default' | 'trips'; // 'trips' variant for trips screen styling
 }
 
 export const TripCard: React.FC<TripCardProps> = ({
@@ -41,6 +42,7 @@ export const TripCard: React.FC<TripCardProps> = ({
   date,
   weight,
   onPress,
+  variant = 'default',
 }) => {
   const [truckXml, setTruckXml] = useState<string>('');
   const [truckImageXml, setTruckImageXml] = useState<string>('');
@@ -96,9 +98,9 @@ export const TripCard: React.FC<TripCardProps> = ({
       case 'Active':
         return '#E8F5E9';
       case 'Pending':
-        return '#FFF3E0';
+        return '#FFF9BA'; // Light yellow/cream from SVG
       case 'Completed':
-        return '#E3F2FD';
+        return '#E8F5E9'; // Same green as Active
       default:
         return '#F5F5F5';
     }
@@ -109,16 +111,25 @@ export const TripCard: React.FC<TripCardProps> = ({
       case 'Active':
         return '#4CAF50';
       case 'Pending':
-        return '#FF9800';
+        return '#BBAB03'; // Darker yellow/brown from SVG
       case 'Completed':
-        return '#2196F3';
+        return '#4CAF50'; // Same green as Active
       default:
         return '#666666';
     }
   };
 
+  const isTripsVariant = variant === 'trips';
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity 
+      style={[
+        styles.card, 
+        isTripsVariant && styles.cardTrips
+      ]} 
+      onPress={onPress} 
+      activeOpacity={0.7}
+    >
       <View style={styles.header}>
         <Text style={[styles.tripId, { fontFamily: fontFamilySemiBold }]}>#{tripId}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
@@ -151,9 +162,15 @@ export const TripCard: React.FC<TripCardProps> = ({
       {progressStatus && (
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={styles.progressLine} />
+            <View style={[
+              styles.progressLine,
+              (status === 'Completed' || progressStatus === 'Delivered') && styles.progressLineCompleted
+            ]} />
             <View style={styles.progressDot} />
-            <View style={styles.progressBadgeContainer}>
+            <View style={[
+              styles.progressBadgeContainer,
+              (status === 'Completed' || progressStatus === 'Delivered') && styles.progressBadgeContainerCompleted
+            ]}>
               <View style={styles.progressBadge}>
                 <Text style={[styles.progressBadgeText, { fontFamily: fontFamilySemiBold }]}>
                   {progressStatus}
@@ -168,7 +185,9 @@ export const TripCard: React.FC<TripCardProps> = ({
                 )}
               </View>
             </View>
-            <View style={[styles.progressDot, styles.progressDotEnd]} />
+            {!(status === 'Completed' || progressStatus === 'Delivered') && (
+              <View style={[styles.progressDot, styles.progressDotEnd]} />
+            )}
           </View>
         </View>
       )}
@@ -176,11 +195,27 @@ export const TripCard: React.FC<TripCardProps> = ({
       <View style={styles.infoRow}>
         {licensePlate && (
           <View style={styles.vehicleInfo}>
-            <View style={styles.truckImage}>
+            <View style={[
+              styles.truckImage,
+              isTripsVariant && styles.truckImageTrips
+            ]}>
               {Platform.OS === 'web' ? (
-                <Image source={truckSvg} style={styles.truckSvg} contentFit="contain" />
+                <Image 
+                  source={truckSvg} 
+                  style={[
+                    styles.truckSvg,
+                    isTripsVariant && styles.truckSvgTrips
+                  ]} 
+                  contentFit="cover" 
+                />
               ) : (
-                truckImageXml ? <SvgXml xml={truckImageXml} width={24} height={24} /> : null
+                truckImageXml ? (
+                  <SvgXml 
+                    xml={truckImageXml} 
+                    width={isTripsVariant ? 32 : 40} 
+                    height={isTripsVariant ? 32 : 40} 
+                  />
+                ) : null
               )}
             </View>
             <View style={styles.licensePlate}>
@@ -199,7 +234,11 @@ export const TripCard: React.FC<TripCardProps> = ({
               <Ionicons name="person" size={20} color="#C8202F" />
             </View>
             <View style={styles.driverTextContainer}>
-              <Text style={[styles.driverLabel, { fontFamily: fontFamilyRegular }]}>Driver</Text>
+              <Text style={[
+                styles.driverLabel, 
+                { fontFamily: fontFamilyRegular },
+                isTripsVariant && styles.driverLabelTrips
+              ]}>Driver</Text>
               <Text style={[styles.driverName, { fontFamily: fontFamilySemiBold }]}>
                 {driverName.replace('Driver ', '')}
               </Text>
@@ -207,41 +246,143 @@ export const TripCard: React.FC<TripCardProps> = ({
           </View>
         )}
       </View>
-      <View style={styles.divider} />
+      <View style={[
+        styles.divider,
+        isTripsVariant && styles.dividerTrips
+      ]} />
 
-      {(distance || date || weight) && (
-        <View style={styles.detailsRow}>
-          {distance && (
-            <View style={[styles.detailItem, styles.detailItemLeft]}>
-              {Platform.OS === 'web' ? (
-                <Image source={distanceSvg} style={styles.detailIcon} contentFit="contain" />
-              ) : (
-                distanceXml ? <SvgXml xml={distanceXml} width={16} height={16} /> : null
+      {isTripsVariant ? (
+        // Trips variant: Conditional display based on status
+        // Pending: Only datetime and km
+        // Active/Completed: km, date, and tons (all three)
+        status === 'Pending' ? (
+          // Pending trips: Only datetime and km
+          (date || distance) && (
+            <View style={styles.detailsRow}>
+              {date && (
+                <View style={[styles.detailItem, styles.detailItemLeft]}>
+                  {Platform.OS === 'web' ? (
+                    <Image source={clockSvg} style={styles.detailIcon} contentFit="contain" />
+                  ) : (
+                    clockXml ? <SvgXml xml={clockXml} width={16} height={16} /> : null
+                  )}
+                  <Text style={[
+                    styles.detailText, 
+                    { fontFamily: fontFamilyRegular },
+                    styles.detailTextTrips
+                  ]}>{date}</Text>
+                </View>
               )}
-              <Text style={[styles.detailText, { fontFamily: fontFamilyRegular }]}>{distance}</Text>
-            </View>
-          )}
-          {date && (
-            <View style={[styles.detailItem, styles.detailItemCenter]}>
-              {Platform.OS === 'web' ? (
-                <Image source={clockSvg} style={styles.detailIcon} contentFit="contain" />
-              ) : (
-                clockXml ? <SvgXml xml={clockXml} width={16} height={16} /> : null
+              {distance && (
+                <View style={[styles.detailItem, styles.detailItemRight]}>
+                  {Platform.OS === 'web' ? (
+                    <Image source={distanceSvg} style={styles.detailIcon} contentFit="contain" />
+                  ) : (
+                    distanceXml ? <SvgXml xml={distanceXml} width={16} height={16} /> : null
+                  )}
+                  <Text style={[
+                    styles.detailText, 
+                    { fontFamily: fontFamilyRegular },
+                    styles.detailTextTrips
+                  ]}>{distance}</Text>
+                </View>
               )}
-              <Text style={[styles.detailText, { fontFamily: fontFamilyRegular }]}>{date}</Text>
             </View>
-          )}
-          {weight && (
-            <View style={[styles.detailItem, styles.detailItemRight]}>
-              {Platform.OS === 'web' ? (
-                <Image source={weightSvg} style={styles.detailIcon} contentFit="contain" />
-              ) : (
-                weightXml ? <SvgXml xml={weightXml} width={16} height={16} /> : null
+          )
+        ) : (
+          // Active/Completed trips: Show all three - km, date, and tons
+          (distance || date || weight) && (
+            <View style={styles.detailsRow}>
+              {distance && (
+                <View style={[styles.detailItem, styles.detailItemLeft]}>
+                  {Platform.OS === 'web' ? (
+                    <Image source={distanceSvg} style={styles.detailIcon} contentFit="contain" />
+                  ) : (
+                    distanceXml ? <SvgXml xml={distanceXml} width={16} height={16} /> : null
+                  )}
+                  <Text style={[
+                    styles.detailText, 
+                    { fontFamily: fontFamilyRegular },
+                    styles.detailTextTrips
+                  ]}>{distance}</Text>
+                </View>
               )}
-              <Text style={[styles.detailText, { fontFamily: fontFamilyRegular }]}>{weight}</Text>
+              {date && (
+                <View style={[styles.detailItem, styles.detailItemCenter]}>
+                  {Platform.OS === 'web' ? (
+                    <Image source={clockSvg} style={styles.detailIcon} contentFit="contain" />
+                  ) : (
+                    clockXml ? <SvgXml xml={clockXml} width={16} height={16} /> : null
+                  )}
+                  <Text style={[
+                    styles.detailText, 
+                    { fontFamily: fontFamilyRegular },
+                    styles.detailTextTrips
+                  ]}>{date}</Text>
+                </View>
+              )}
+              {weight && (
+                <View style={[styles.detailItem, styles.detailItemRight]}>
+                  {Platform.OS === 'web' ? (
+                    <Image source={weightSvg} style={styles.detailIcon} contentFit="contain" />
+                  ) : (
+                    weightXml ? <SvgXml xml={weightXml} width={16} height={16} /> : null
+                  )}
+                  <Text style={[
+                    styles.detailText, 
+                    { fontFamily: fontFamilyRegular },
+                    styles.detailTextTrips
+                  ]}>{weight}</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
+          )
+        )
+      ) : (
+        // Default variant: Show all details with icons
+        (distance || date || weight) && (
+          <View style={styles.detailsRow}>
+            {distance && (
+              <View style={[styles.detailItem, styles.detailItemLeft]}>
+                {Platform.OS === 'web' ? (
+                  <Image source={distanceSvg} style={styles.detailIcon} contentFit="contain" />
+                ) : (
+                  distanceXml ? <SvgXml xml={distanceXml} width={16} height={16} /> : null
+                )}
+                <Text style={[
+                  styles.detailText, 
+                  { fontFamily: fontFamilyRegular }
+                ]}>{distance}</Text>
+              </View>
+            )}
+            {date && (
+              <View style={[styles.detailItem, styles.detailItemCenter]}>
+                {Platform.OS === 'web' ? (
+                  <Image source={clockSvg} style={styles.detailIcon} contentFit="contain" />
+                ) : (
+                  clockXml ? <SvgXml xml={clockXml} width={16} height={16} /> : null
+                )}
+                <Text style={[
+                  styles.detailText, 
+                  { fontFamily: fontFamilyRegular }
+                ]}>{date}</Text>
+              </View>
+            )}
+            {weight && (
+              <View style={[styles.detailItem, styles.detailItemRight]}>
+                {Platform.OS === 'web' ? (
+                  <Image source={weightSvg} style={styles.detailIcon} contentFit="contain" />
+                ) : (
+                  weightXml ? <SvgXml xml={weightXml} width={16} height={16} /> : null
+                )}
+                <Text style={[
+                  styles.detailText, 
+                  { fontFamily: fontFamilyRegular }
+                ]}>{weight}</Text>
+              </View>
+            )}
+          </View>
+        )
       )}
     </TouchableOpacity>
   );
@@ -265,6 +406,10 @@ const styles = StyleSheet.create({
       elevation: 2,
     }),
   },
+  cardTrips: {
+    borderRadius: 7.5,
+    borderColor: '#EEEEEE',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -277,13 +422,17 @@ const styles = StyleSheet.create({
     color: '#C8202F',
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 20,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: Platform.OS === 'web' ? '600' : 'normal',
+    lineHeight: 12,
   },
   routeContainer: {
     flexDirection: 'row',
@@ -325,6 +474,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#C8202F',
     borderRadius: 2,
   },
+  progressLineCompleted: {
+    width: '100%',
+    backgroundColor: '#C8202F', // Keep red color as per design
+  },
   progressDot: {
     position: 'absolute',
     left: 0,
@@ -345,6 +498,12 @@ const styles = StyleSheet.create({
     top: -48,
     alignItems: 'center',
     width: 80,
+  },
+  progressBadgeContainerCompleted: {
+    left: 'auto',
+    right: -20, // Move back 10px from endpoint, keeping truck icon slightly before the end
+    alignItems: 'center',
+    zIndex: 10, // Ensure truck container appears on top
   },
   progressBadge: {
     backgroundColor: '#000000',
@@ -380,7 +539,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 14,
-    zIndex: 1,
+    zIndex: 10, // Ensure truck SVG appears on top
   },
   dispatchedIcon: {
     width: 40,
@@ -407,15 +566,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E5E5',
+    overflow: 'hidden',
+  },
+  truckImageTrips: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
   },
   truckSvg: {
-    width: 24,
-    height: 24,
+    width: 40,
+    height: 40,
+  },
+  truckSvgTrips: {
+    width: 32,
+    height: 32,
   },
   divider: {
     height: 1,
     backgroundColor: '#E5E5E5',
     marginVertical: 12,
+  },
+  dividerTrips: {
+    backgroundColor: '#EAEAEA',
   },
   arrowIcon: {
     width: 14,
@@ -487,6 +659,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666666',
   },
+  driverLabelTrips: {
+    color: '#757575',
+  },
   driverName: {
     fontSize: 12,
     color: '#000000',
@@ -516,6 +691,9 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 12,
     color: '#666666',
+  },
+  detailTextTrips: {
+    color: '#757575',
   },
   progressTruckIcon: {
     width: 12,
