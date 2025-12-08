@@ -18,6 +18,12 @@ import { loadSvgFromAsset } from '@/utils/svgLoader';
 // SVG imports
 const truckSvg = require('@/assets/screen-asset/truck.svg');
 const smallTruckSvg = require('@/assets/screen-asset/small-truck.svg');
+const callButtonSvg = require('@/assets/screen-asset/callButton.svg');
+const dashedLineSvg = require('@/assets/screen-asset/dashed-line.svg');
+const trackingTruckSvg = require('@/assets/screen-asset/tracking-truck.svg');
+const trackingStatusLineSvg = require('@/assets/screen-asset/tracking-status-line.svg');
+const trackingStatusLine2Svg = require('@/assets/screen-asset/tracking-status-line2.svg');
+const greenDotSvg = require('@/assets/screen-asset/green-dot.svg');
 
 interface TripDetails {
   tripId: string;
@@ -37,11 +43,11 @@ interface TripDetails {
   trackingStatus: {
     currentStep: string;
     currentStepDescription: string;
-    steps: Array<{
+    steps: {
       label: string;
       description: string;
       completed: boolean;
-    }>;
+    }[];
   };
 }
 
@@ -91,6 +97,12 @@ export default function TripDetailsScreen() {
   const [tripDetails] = useState<TripDetails>(mockTripDetails);
   const [truckImageXml, setTruckImageXml] = useState<string>('');
   const [smallTruckXml, setSmallTruckXml] = useState<string>('');
+  const [callButtonXml, setCallButtonXml] = useState<string>('');
+  const [dashedLineXml, setDashedLineXml] = useState<string>('');
+  const [trackingTruckXml, setTrackingTruckXml] = useState<string>('');
+  const [trackingStatusLineXml, setTrackingStatusLineXml] = useState<string>('');
+  const [trackingStatusLine2Xml, setTrackingStatusLine2Xml] = useState<string>('');
+  const [greenDotXml, setGreenDotXml] = useState<string>('');
 
   React.useEffect(() => {
     const loadSvgs = async () => {
@@ -99,8 +111,20 @@ export default function TripDetailsScreen() {
       }
       const truck = await loadSvgFromAsset(truckSvg);
       const smallTruck = await loadSvgFromAsset(smallTruckSvg);
+      const callButton = await loadSvgFromAsset(callButtonSvg);
+      const dashedLine = await loadSvgFromAsset(dashedLineSvg);
+      const trackingTruck = await loadSvgFromAsset(trackingTruckSvg);
+      const trackingStatusLine = await loadSvgFromAsset(trackingStatusLineSvg);
+      const trackingStatusLine2 = await loadSvgFromAsset(trackingStatusLine2Svg);
+      const greenDot = await loadSvgFromAsset(greenDotSvg);
       if (truck) setTruckImageXml(truck);
       if (smallTruck) setSmallTruckXml(smallTruck);
+      if (callButton) setCallButtonXml(callButton);
+      if (dashedLine) setDashedLineXml(dashedLine);
+      if (trackingTruck) setTrackingTruckXml(trackingTruck);
+      if (trackingStatusLine) setTrackingStatusLineXml(trackingStatusLine);
+      if (trackingStatusLine2) setTrackingStatusLine2Xml(trackingStatusLine2);
+      if (greenDot) setGreenDotXml(greenDot);
     };
     loadSvgs();
   }, []);
@@ -166,12 +190,11 @@ export default function TripDetailsScreen() {
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+          <Ionicons name="arrow-back" size={20} color="#222222" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { fontFamily: fontFamilySemiBold }]}>
           Trip Details
         </Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -223,7 +246,13 @@ export default function TripDetailsScreen() {
               onPress={handleCallDriver}
               activeOpacity={0.7}
             >
-              <Ionicons name="call" size={24} color="#FFFFFF" />
+              {Platform.OS === 'web' ? (
+                <ExpoImage source={callButtonSvg} style={styles.callButtonImage} contentFit="contain" />
+              ) : (
+                callButtonXml ? (
+                  <SvgXml xml={callButtonXml} width={40} height={40} />
+                ) : null
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -239,16 +268,19 @@ export default function TripDetailsScreen() {
                 {tripDetails.tripId}
               </Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
-              <Text
-                style={[
-                  styles.statusText,
-                  { color: getStatusTextColor(), fontFamily: fontFamilySemiBold },
-                ]}
-              >
-                {tripDetails.status}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={getStatusTextColor()} />
+            <View style={styles.statusContainer}>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: getStatusTextColor(), fontFamily: fontFamilySemiBold },
+                  ]}>
+                  {tripDetails.status}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.statusDropdownButton}>
+                <Ionicons name="chevron-down" size={16} color="#000000" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -258,14 +290,16 @@ export default function TripDetailsScreen() {
           <View style={styles.locationSection}>
             {/* Origin */}
             <View style={styles.locationItem}>
-              <View style={[styles.locationIcon, styles.originIcon]}>
-                <Ionicons name="business" size={20} color="#FFFFFF" />
+              <View style={styles.locationIconWrapper}>
+                <View style={[styles.locationIconCircle, styles.locationIconCircleRed]}>
+                  <Ionicons name="business" size={20} color="#FFFFFF" />
+                </View>
               </View>
               <View style={styles.locationContent}>
-                <Text style={[styles.locationTitle, { fontFamily: fontFamilySemiBold }]}>
+                <Text style={[styles.locationTitle, { fontFamily: fontFamilySemiBold }]} numberOfLines={1}>
                   {tripDetails.pickupLocation}
                 </Text>
-                <Text style={[styles.locationSubtitle, { fontFamily: fontFamilyRegular }]}>
+                <Text style={[styles.locationSubtitle, { fontFamily: fontFamilyRegular }]} numberOfLines={2}>
                   {tripDetails.pickupAddress}
                 </Text>
               </View>
@@ -273,19 +307,34 @@ export default function TripDetailsScreen() {
 
             {/* Connecting Line */}
             <View style={styles.connectingLine}>
-              <View style={styles.dashedLine} />
+              {Platform.OS === 'web' ? (
+                <ExpoImage 
+                  source={dashedLineSvg} 
+                  style={styles.dashedLineImage} 
+                  contentFit="contain"
+                  contentPosition="left center"
+                />
+              ) : (
+                dashedLineXml ? (
+                  <SvgXml xml={dashedLineXml} width={1} height={56} />
+                ) : (
+                  <View style={styles.dashedLineFallback} />
+                )
+              )}
             </View>
 
             {/* Destination */}
             <View style={styles.locationItem}>
-              <View style={[styles.locationIcon, styles.destinationIcon]}>
-                <Ionicons name="location" size={20} color="#FFFFFF" />
+              <View style={styles.locationIconWrapper}>
+                <View style={[styles.locationIconCircle, styles.locationIconCircleTeal]}>
+                  <Ionicons name="location" size={20} color="#FFFFFF" />
+                </View>
               </View>
               <View style={styles.locationContent}>
-                <Text style={[styles.locationTitle, { fontFamily: fontFamilySemiBold }]}>
+                <Text style={[styles.locationTitle, { fontFamily: fontFamilySemiBold }]} numberOfLines={1}>
                   {tripDetails.dropLocation}
                 </Text>
-                <Text style={[styles.locationSubtitle, { fontFamily: fontFamilyRegular }]}>
+                <Text style={[styles.locationSubtitle, { fontFamily: fontFamilyRegular }]} numberOfLines={2}>
                   {tripDetails.dropAddress}
                 </Text>
               </View>
@@ -299,7 +348,7 @@ export default function TripDetailsScreen() {
             <Text style={[styles.sectionTitle, { fontFamily: fontFamilySemiBold }]}>
               Tracking Status
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push(`/trips/${tripId}/tracking-history`)}>
               <Text style={[styles.seeMoreText, { fontFamily: fontFamilyRegular }]}>
                 See More
               </Text>
@@ -307,67 +356,165 @@ export default function TripDetailsScreen() {
           </View>
 
           <View style={styles.trackingProgress}>
-            {/* Progress Line */}
-            <View style={styles.progressLineContainer}>
-              <View
-                style={[
-                  styles.progressLineFill,
-                  {
-                    width: `${(tripDetails.trackingStatus.steps.filter((s) => s.completed).length / tripDetails.trackingStatus.steps.length) * 100}%`,
-                  },
-                ]}
-              />
-              {/* Truck Icon on Progress */}
-              <View
-                style={[
-                  styles.progressTruckIcon,
-                  {
-                    left: `${(tripDetails.trackingStatus.steps.filter((s) => s.completed).length / tripDetails.trackingStatus.steps.length) * 100}%`,
-                  },
-                ]}
-              >
-                {Platform.OS === 'web' ? (
-                  <ExpoImage source={smallTruckSvg} style={styles.progressTruckImage} contentFit="contain" />
-                ) : (
-                  smallTruckXml ? (
-                    <SvgXml xml={smallTruckXml} width={24} height={24} />
-                  ) : null
-                )}
+            {/* Progress Line with Steps */}
+            <View style={styles.progressLineWrapper}>
+              {/* Progress Line Container */}
+              <View style={styles.progressLineContainer}>
+                {/* Calculate completed segments */}
+                {(() => {
+                  const completedCount = tripDetails.trackingStatus.steps.filter(s => s.completed).length;
+                  const totalSteps = tripDetails.trackingStatus.steps.length;
+                  // Position dots at start (0%), middle (50%), end (100%) for 3 steps
+                  const stepPositions = totalSteps > 1 
+                    ? tripDetails.trackingStatus.steps.map((_, i) => (i / (totalSteps - 1)) * 100)
+                    : [0];
+                  
+                  return (
+                    <>
+                      {/* Step Dots positioned absolutely */}
+                      {tripDetails.trackingStatus.steps.map((step, index) => (
+                        <View
+                          key={`dot-${index}`}
+                          style={[
+                            styles.stepDotAbsolute,
+                            {
+                              left: `${stepPositions[index]}%`,
+                              transform: [{ translateX: -5.5 }], // Center the 11px dot
+                            },
+                          ]}
+                        >
+                          {step.completed ? (
+                            Platform.OS === 'web' ? (
+                              <ExpoImage source={greenDotSvg} style={styles.greenDotImage} contentFit="contain" />
+                            ) : (
+                              greenDotXml ? (
+                                <SvgXml xml={greenDotXml} width={11} height={11} />
+                              ) : (
+                                <View style={[styles.stepCircle, styles.stepCircleCompleted]} />
+                              )
+                            )
+                          ) : (
+                            <View style={[styles.stepCircle, styles.stepCircleUpcoming]} />
+                          )}
+                        </View>
+                      ))}
+                      
+                      {/* Completed Progress Line - connects completed dots (need at least 2 dots to have a line) */}
+                      {completedCount >= 2 && (
+                        <View
+                          style={[
+                            styles.progressLineCompleted,
+                            {
+                              left: `${stepPositions[0]}%`,
+                              width: `${stepPositions[completedCount - 1] - stepPositions[0]}%`,
+                            },
+                          ]}
+                        />
+                      )}
+                      
+                      {/* Dashed Progress Line for remaining */}
+                      {completedCount < totalSteps && completedCount > 0 && (
+                        <View
+                          style={[
+                            styles.progressLineDashed,
+                            {
+                              left: `${stepPositions[completedCount - 1]}%`,
+                              width: `${stepPositions[totalSteps - 1] - stepPositions[completedCount - 1]}%`,
+                            },
+                          ]}
+                        >
+                          {Platform.OS === 'web' ? (
+                            <ExpoImage 
+                              source={trackingStatusLine2Svg} 
+                              style={styles.trackingDashedLineImage} 
+                              contentFit="fill"
+                            />
+                          ) : (
+                            trackingStatusLine2Xml ? (
+                              <SvgXml xml={trackingStatusLine2Xml} width="100%" height={2} />
+                            ) : (
+                              <View style={styles.trackingDashedLineFallback} />
+                            )
+                          )}
+                        </View>
+                      )}
+                      
+                      {/* Truck Icon positioned at the end of completed steps */}
+                      {completedCount > 0 && completedCount < totalSteps && (
+                        <View
+                          style={[
+                            styles.progressTruckIcon,
+                            {
+                              left: `${stepPositions[completedCount - 1]}%`,
+                              transform: [{ translateX: -20 }],
+                            },
+                          ]}
+                        >
+                          {Platform.OS === 'web' ? (
+                            <ExpoImage source={trackingTruckSvg} style={styles.progressTruckImage} contentFit="contain" />
+                          ) : (
+                            trackingTruckXml ? (
+                              <SvgXml xml={trackingTruckXml} width={40} height={20} />
+                            ) : null
+                          )}
+                        </View>
+                      )}
+                    </>
+                  );
+                })()}
+              </View>
+
+              {/* Steps Below Progress Line */}
+              <View style={styles.stepsContainer}>
+                {tripDetails.trackingStatus.steps.map((step, index) => {
+                  const totalSteps = tripDetails.trackingStatus.steps.length;
+                  const isLastStep = index === totalSteps - 1;
+                  
+                  return (
+                    <View 
+                      key={index} 
+                      style={[
+                        styles.trackingStep,
+                        isLastStep && styles.trackingStepLast
+                      ]}
+                    >
+                      {/* Step Content - dots are positioned absolutely above */}
+                      <View style={[
+                        styles.stepContent,
+                        isLastStep && styles.stepContentLast
+                      ]}>
+                        <Text style={[
+                          styles.stepLabel, 
+                          { fontFamily: fontFamilySemiBold },
+                          isLastStep && styles.stepLabelLast
+                        ]}>
+                          {step.label}
+                        </Text>
+                        <Text style={[
+                          styles.stepDescription, 
+                          { fontFamily: fontFamilyRegular },
+                          isLastStep && styles.stepDescriptionLast
+                        ]}>
+                          {step.description}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             </View>
-
-            {/* Steps */}
-            {tripDetails.trackingStatus.steps.map((step, index) => (
-              <View key={index} style={styles.trackingStep}>
-                <View
-                  style={[
-                    styles.stepDot,
-                    step.completed && styles.stepDotCompleted,
-                  ]}
-                />
-                <View style={styles.stepContent}>
-                  <Text style={[styles.stepLabel, { fontFamily: fontFamilySemiBold }]}>
-                    {step.label}
-                  </Text>
-                  <Text style={[styles.stepDescription, { fontFamily: fontFamilyRegular }]}>
-                    {step.description}
-                  </Text>
-                </View>
-              </View>
-            ))}
           </View>
         </View>
 
         {/* Truck Details */}
         <View style={styles.card}>
-          <Text style={[styles.sectionLabel, { fontFamily: fontFamilyRegular }]}>Truck</Text>
           <View style={styles.truckDetailsRow}>
             <View style={styles.truckImageContainer}>
               {Platform.OS === 'web' ? (
-                <ExpoImage source={truckSvg} style={styles.truckImage} contentFit="contain" />
+                <ExpoImage source={truckSvg} style={styles.truckImage} contentFit="cover" />
               ) : (
                 truckImageXml ? (
-                  <SvgXml xml={truckImageXml} width={60} height={40} />
+                  <SvgXml xml={truckImageXml} width={60} height={60} />
                 ) : (
                   <View style={styles.truckImagePlaceholder}>
                     <Ionicons name="car" size={32} color="#C8202F" />
@@ -376,39 +523,40 @@ export default function TripDetailsScreen() {
               )}
             </View>
             <View style={styles.truckInfo}>
+              <Text style={[styles.truckLabel, { fontFamily: fontFamilyRegular }]}>Truck</Text>
               <Text style={[styles.truckName, { fontFamily: fontFamilySemiBold }]}>
                 {tripDetails.vehicleType}
               </Text>
-              <View style={styles.licensePlateContainer}>
-                <View style={styles.countryBadge}>
-                  <Text style={[styles.countryCode, { fontFamily: fontFamilySemiBold }]}>TZA</Text>
-                </View>
-                <View style={styles.plateBadge}>
-                  <Text style={[styles.plateText, { fontFamily: fontFamilySemiBold }]}>
-                    {tripDetails.licensePlate}
-                  </Text>
-                </View>
+            </View>
+            <View style={styles.licensePlateContainer}>
+              <View style={styles.countryBadge}>
+                <Text style={[styles.countryCode, { fontFamily: fontFamilySemiBold }]}>TZA</Text>
+              </View>
+              <View style={styles.plateBadge}>
+                <Text style={[styles.plateText, { fontFamily: fontFamilySemiBold }]}>
+                  {tripDetails.licensePlate.replace('TZA ', '')}
+                </Text>
               </View>
             </View>
           </View>
         </View>
 
+        {/* Bottom Button */}
+        <View style={styles.bottomButtonContainer}>
+          <TouchableOpacity
+            style={styles.viewQuotationButton}
+            onPress={handleViewQuotation}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.viewQuotationText, { fontFamily: fontFamilySemiBold }]}>
+              View Quotation
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
-
-      {/* Bottom Button */}
-      <View style={styles.bottomButtonContainer}>
-        <TouchableOpacity
-          style={styles.viewQuotationButton}
-          onPress={handleViewQuotation}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.viewQuotationText, { fontFamily: fontFamilySemiBold }]}>
-            View Quotation
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -422,23 +570,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    height: 66,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
   },
   backButton: {
-    padding: 4,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F7F7F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   headerTitle: {
-    flex: 1,
     fontSize: 18,
-    color: '#000000',
-    textAlign: 'center',
-    marginLeft: -28, // Offset for back button
-  },
-  headerSpacer: {
-    width: 32,
+    color: '#222222',
+    fontWeight: Platform.OS === 'web' ? '600' : 'normal',
   },
   scrollView: {
     flex: 1,
@@ -546,12 +693,14 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
   callButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#C8202F',
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  callButtonImage: {
+    width: 40,
+    height: 40,
   },
   shippingInfoRow: {
     flexDirection: 'row',
@@ -566,60 +715,101 @@ const styles = StyleSheet.create({
     color: '#000000',
     marginTop: 4,
   },
-  statusBadge: {
+  statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    gap: 4,
   },
   statusText: {
     fontSize: 12,
     fontWeight: Platform.OS === 'web' ? '600' : 'normal',
   },
-  locationSection: {
-    gap: 16,
-  },
-  locationItem: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  locationIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  statusDropdownButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  originIcon: {
+  locationSection: {
+    flexDirection: 'column',
+    width: '100%',
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 0,
+  },
+  locationIconWrapper: {
+    width: 41,
+    height: 41,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  locationIconCircle: {
+    width: 41,
+    height: 41,
+    borderRadius: 20.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationIconCircleRed: {
     backgroundColor: '#C8202F',
   },
-  destinationIcon: {
-    backgroundColor: '#00695C',
+  locationIconCircleTeal: {
+    backgroundColor: '#1A6B6B',
   },
   locationContent: {
     flex: 1,
+    flexShrink: 1,
+    paddingTop: 2,
   },
   locationTitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#000000',
     marginBottom: 4,
+    fontWeight: Platform.OS === 'web' ? '600' : 'normal',
   },
   locationSubtitle: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666666',
+    lineHeight: 20,
   },
   connectingLine: {
-    paddingLeft: 16,
-    height: 20,
+    height: 56,
+    alignItems: 'center',
+    paddingLeft: 0,
+    marginLeft: 20.5,
+    justifyContent: 'center',
+    width: 1,
   },
-  dashedLine: {
-    width: 2,
-    flex: 1,
-    borderLeftWidth: 2,
-    borderLeftColor: '#E5E5E5',
-    borderStyle: 'dashed',
+  dashedLineImage: {
+    width: 1,
+    height: 56,
+    alignSelf: 'center',
+    marginLeft: 0,
+    ...(Platform.OS === 'web' && {
+      objectPosition: 'center top',
+      left: 0,
+      position: 'relative',
+    }),
+  },
+  dashedLineFallback: {
+    width: 1,
+    height: 56,
+    backgroundColor: '#D0D0D0',
+    opacity: 0.5,
   },
   trackingHeader: {
     flexDirection: 'row',
@@ -628,7 +818,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#000000',
   },
   seeMoreText: {
@@ -636,81 +826,145 @@ const styles = StyleSheet.create({
     color: '#C8202F',
   },
   trackingProgress: {
-    gap: 16,
+    gap: 0,
+  },
+  progressLineWrapper: {
+    position: 'relative',
+    paddingVertical: 20,
+    paddingHorizontal: 0,
   },
   progressLineContainer: {
-    height: 4,
-    backgroundColor: '#E5E5E5',
-    borderRadius: 2,
+    height: 2,
+    backgroundColor: '#CDCDCD',
+    borderRadius: 1,
     position: 'relative',
-    marginBottom: 8,
+    marginBottom: 32,
+    width: '100%',
   },
-  progressLineFill: {
-    height: 4,
-    backgroundColor: '#089561',
-    borderRadius: 2,
+  stepDotAbsolute: {
     position: 'absolute',
-    left: 0,
+    top: -5.5, // Center the dot on the line (11px dot / 2 = 5.5px)
+    zIndex: 5,
+  },
+  progressLineCompleted: {
+    height: 2,
+    backgroundColor: '#00C26D',
+    borderRadius: 1,
+    position: 'absolute',
     top: 0,
+    zIndex: 1,
+  },
+  progressLineDashed: {
+    height: 2,
+    position: 'absolute',
+    top: 0,
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  trackingDashedLineImage: {
+    width: '100%',
+    height: 2,
+  },
+  trackingDashedLineFallback: {
+    width: '100%',
+    height: 2,
+    backgroundColor: '#CDCDCD',
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#CDCDCD',
   },
   progressTruckIcon: {
     position: 'absolute',
     top: -10,
-    transform: [{ translateX: -12 }],
+    zIndex: 10,
   },
   progressTruckImage: {
-    width: 24,
-    height: 24,
+    width: 40,
+    height: 20,
+  },
+  stepsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 0,
+    marginTop: 0,
+    position: 'relative',
   },
   trackingStep: {
-    flexDirection: 'row',
-    gap: 12,
     alignItems: 'flex-start',
+    paddingRight: 8,
+    flexShrink: 1,
   },
-  stepDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E5E5E5',
-    marginTop: 2,
+  trackingStepLast: {
+    marginLeft: 'auto',
+    paddingRight: 0,
+    alignItems: 'flex-end',
   },
-  stepDotCompleted: {
-    backgroundColor: '#089561',
+  greenDotImage: {
+    width: 11,
+    height: 11,
+  },
+  stepCircle: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepCircleCompleted: {
+    backgroundColor: '#00C26D',
+    borderColor: '#C9F8E3',
+  },
+  stepCircleUpcoming: {
+    backgroundColor: '#A7A7A7',
+    borderColor: '#E1E1E1',
   },
   stepContent: {
-    flex: 1,
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  stepContentLast: {
+    alignItems: 'flex-end',
   },
   stepLabel: {
     fontSize: 14,
     color: '#000000',
-    marginBottom: 2,
+    marginBottom: 4,
+    textAlign: 'left',
+    fontWeight: Platform.OS === 'web' ? '600' : 'normal',
+  },
+  stepLabelLast: {
+    textAlign: 'right',
   },
   stepDescription: {
     fontSize: 12,
-    color: '#666666',
+    color: '#757575',
+    textAlign: 'left',
+    lineHeight: 16,
+  },
+  stepDescriptionLast: {
+    textAlign: 'right',
   },
   truckDetailsRow: {
     flexDirection: 'row',
-    gap: 16,
     alignItems: 'center',
-    marginTop: 8,
   },
   truckImageContainer: {
-    width: 80,
+    width: 60,
     height: 60,
-    borderRadius: 8,
+    borderRadius: 30,
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    overflow: 'hidden',
+    marginRight: 12,
   },
   truckImage: {
-    width: 80,
+    width: 60,
     height: 60,
   },
   truckImagePlaceholder: {
-    width: 80,
+    width: 60,
     height: 60,
     justifyContent: 'center',
     alignItems: 'center',
@@ -718,10 +972,14 @@ const styles = StyleSheet.create({
   truckInfo: {
     flex: 1,
   },
+  truckLabel: {
+    fontSize: 12,
+    color: '#666666',
+    marginBottom: 4,
+  },
   truckName: {
     fontSize: 16,
     color: '#000000',
-    marginBottom: 8,
   },
   licensePlateContainer: {
     flexDirection: 'row',
@@ -766,19 +1024,14 @@ const styles = StyleSheet.create({
     height: 20,
   },
   bottomButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    paddingBottom: 20,
+    marginTop: 20,
   },
   viewQuotationButton: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#FEF2F2',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
@@ -792,4 +1045,3 @@ const styles = StyleSheet.create({
     fontWeight: Platform.OS === 'web' ? '600' : 'normal',
   },
 });
-

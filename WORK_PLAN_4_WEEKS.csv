@@ -1,0 +1,36 @@
+Sr No,Module,Screen Name,API Integration,Front End Development,Start Date,End Date
+1,Onboarding,Onboarding Carousel (multiple screens),,Week 1,Day 1,Day 3
+2,Onboarding,Permissions / Location Onboarding,,Week 1,Day 2,Day 4
+3,Authentication,Login Screen,Week 1,Week 1,Day 1,Day 2
+4,Authentication,Sign Up Screen,Week 1,Week 1,Day 1,Day 3
+5,Authentication,Forgot Password,Week 1,Week 1,Day 2,Day 4
+6,Navigation,Bottom Tab Navigation,,Week 1,Day 1,Day 2
+7,Home,Home Dashboard (base shell),Week 1,Week 1,Day 3,Day 5
+8,Home,Location Card / Quick Location,,Week 1,Day 3,Day 4
+9,Profile,Profile Overview Screen,Week 1,Week 1,Day 4,Day 5
+10,Trips,Trips List Screen,Week 2,Week 2,Day 1,Day 2
+11,Trips,Trip Details Screen,Week 2,Week 2,Day 1,Day 3
+12,Trips,Tracking Status Component,Week 2,Week 2,Day 2,Day 3
+13,Trips,Tracking History (Draggable Sheet),Week 2,Week 2,Day 3,Day 4
+14,Trips,Map Integration + Fullscreen Button,Week 2,Week 2,Day 1,Day 4
+15,Trips,Timeline Refinements (new PNG set),,Week 2,Day 3,Day 5
+16,Profile,Profile Edit / Settings (profile PNG set),Week 2,Week 2,Day 4,Day 5
+17,Quotes - Open Forum,Quotes List (Open Forum),Week 3,Week 3,Day 1,Day 2
+18,Quotes - Open Forum,Select Mode (What Suits You),Week 3,Week 3,Day 1,Day 2
+19,Quotes - Open Forum,Cargo Information Form,Week 3,Week 3,Day 2,Day 3
+20,Quotes - Open Forum,Pickup & Drop Details Form,Week 3,Week 3,Day 3,Day 4
+21,Quotes - Open Forum,Success Confirmation,Week 3,Week 3,Day 4,Day 5
+22,Quotes - Individual,Select Mode – Individual,Week 3,Week 3,Day 1,Day 2
+23,Quotes - Individual,Select Company (Individual),Week 3,Week 3,Day 2,Day 3
+24,Quotes - Individual,Cargo / Pickup & Drop Forms (Individual),Week 3,Week 3,Day 3,Day 4
+25,Quotes - Individual,Success Confirmation (Individual),Week 3,Week 3,Day 4,Day 5
+26,Quotes - Private,Private Quote Flow (list/create),Week 3,Week 3,Day 3,Day 5
+27,Home - Company,Home Dashboard - Company,Week 4,Week 4,Day 1,Day 2
+28,Home - Company,Select Company (Switching),Week 4,Week 4,Day 1,Day 2
+29,Home - Company,Company Details View,Week 4,Week 4,Day 2,Day 3
+30,Home - Company,Company Details Edit Form,Week 4,Week 4,Day 3,Day 4
+31,Home - Individual,Home Dashboard - Individual (final polish),Week 4,Week 4,Day 1,Day 3
+32,Profile,Profile Documents / Extras (profile PNG set),Week 4,Week 4,Day 2,Day 3
+33,Testing,Bug Fixes & Regression,Week 4,Week 4,Day 4,Day 5
+34,Polish,UI/UX Refinements,,Week 4,Day 3,Day 5
+
