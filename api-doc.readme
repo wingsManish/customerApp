@@ -1,0 +1,56 @@
+Truck App API – Auth Quickstart (Customer App focus)
+
+What you need
+- Base URL: set Postman/global var `authentication_url` (example: https://tba-authentication-dev.azurewebsites.net).
+- Client key for Customer App: `customer` (truck=owner, driver=driver).
+- Postman files: `postman/TBA_API_Collection.json` and `postman/globals.json`.
+
+Standard response envelope
+- Fields: `statusCode` (int), `success` (bool), `message` (string), `data` (object/array).
+- Always check `success` before using `data`.
+
+Auth endpoints (from Postman collection)
+- POST `{{authentication_url}}/apptoken`
+  - Purpose: issue app-level token (scopes the client/app type).
+  - Body: `{"clientKey": "customer"}` for Customer App.
+  - Success: `data.jwtToken` -> store as `authToken`.
+
+- POST `{{authentication_url}}/login`
+  - Purpose: user login -> user JWT + refresh token.
+  - Header: `Authorization: {{authToken}}` (from /apptoken).
+  - Body: `{"username": "<customer_username>", "password": "<password>"}`
+  - Success: `data.jwtToken` -> user token; `data.refreshToken` -> refresh token.
+
+- POST `{{authentication_url}}/refresh`
+  - Purpose: rotate user token.
+  - Header: `Authorization: {{refreshToken}}`.
+  - Body: none.
+  - Success: `data.jwtToken` -> new user token.
+
+End-to-end flow (customer)
+1) Generate app token: call /apptoken with `clientKey=customer`; save `authToken`.
+2) Login: call /login with customer credentials and `Authorization: authToken`; save `jwtToken` (user) + `refreshToken`.
+3) Call protected Customer APIs with `Authorization: jwtToken`.
+4) When `jwtToken` nears/at expiry, call /refresh with `Authorization: refreshToken`; replace stored `jwtToken`.
+5) On logout: clear app token, user token, and refresh token.
+
+Postman setup tips
+- Import collection and globals. Add `authentication_url` and set `clientKey` to `customer` in the /apptoken body.
+- Scripts in the collection already write `authToken`, `jwtToken`, and `refreshToken` to globals; verify they update after each call.
+- Run requests in order: Get App token → Login → Refresh Token.
+
+Role considerations
+- Same login endpoint for all roles; role is encoded in the JWT.
+- Use customer-role credentials for Customer App; admin credentials expose full org/customer data and should not be used in mobile flows.
+
+App implementation notes
+- Store tokens securely (Keychain/Keystore); do not log them.
+- Set an expiry timer for `jwtToken`; refresh proactively (e.g., a few minutes before expiry).
+- Handle 401/403 by attempting a refresh once; if it fails, force re-login.
+- Always send HTTPS; validate TLS.
+
+References
+- Collection: `postman/TBA_API_Collection.json`
+- Globals: `postman/globals.json`
+- Meeting notes: Truck App auth overview (Nov 27, 2025)
+

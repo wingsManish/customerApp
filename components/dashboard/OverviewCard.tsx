@@ -58,9 +58,9 @@ export const OverviewCard: React.FC<OverviewCardProps> = ({ value, label, icon }
     default: 'Figtree',
   });
 
-  const fontFamilyRegular = Platform.select({
-    ios: 'Figtree-Regular',
-    android: 'Figtree-Regular',
+  const fontFamilyMedium = Platform.select({
+    ios: 'Figtree-Medium',
+    android: 'Figtree-Medium',
     web: 'Figtree',
     default: 'Figtree',
   });
@@ -85,7 +85,7 @@ export const OverviewCard: React.FC<OverviewCardProps> = ({ value, label, icon }
   return (
     <View style={styles.card}>
       <Text style={[styles.value, { fontFamily: fontFamilySemiBold }]}>{value}</Text>
-      <Text style={[styles.label, { fontFamily: fontFamilyRegular }]}>{label}</Text>
+      <Text style={[styles.label, { fontFamily: fontFamilyMedium }]}>{label}</Text>
       <View style={styles.iconContainer}>
         {svgSource ? (
           Platform.OS === 'web' ? (
@@ -120,9 +120,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666666',
-    lineHeight: 16,
+    lineHeight: 20,
   },
   iconContainer: {
     position: 'absolute',

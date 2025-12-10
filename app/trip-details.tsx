@@ -1,15 +1,27 @@
+/**
+ * TripDetailsScreen
+ *
+ * Install (Expo):
+ *   expo install react-native-maps
+ *   npm install @gorhom/bottom-sheet
+ *   // Ensure peer deps are set up: react-native-gesture-handler, react-native-reanimated
+ *   // If not already, wrap your root with GestureHandlerRootView and (optionally) BottomSheetModalProvider.
+ *
+ * Usage (Expo Router):
+ *   - File is in app/trip-details.tsx
+ *   - Navigate via router.push('/trip-details')
+ *
+ * Adjusting snap points:
+ *   - Edit SNAP_POINTS below (percent strings). Index 0 = collapsed, 1 = mid, 2 = expanded.
+ *   - Change INITIAL_INDEX to pick the default open height.
+ */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar as RNStatusBar } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, LatLng } from 'react-native-maps';
-import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-// Snap points: collapsed, mid, expanded
-const SNAP_POINTS: (string | number)[] = ['35%', '60%', '90%'];
-const INITIAL_INDEX = 0;
+import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { useRouter } from 'expo-router';
 
 type TimelineStatus = 'completed' | 'current' | 'pending';
 
@@ -21,6 +33,8 @@ type TimelineItem = {
   status: TimelineStatus;
 };
 
+const SNAP_POINTS: (string | number)[] = ['35%', '60%', '90%'];
+const INITIAL_INDEX = 0;
 const timelineData: TimelineItem[] = [
   { id: '1', title: 'Start Trip', subtitle: 'On way to pickup.', timestamp: '18 May 10:13', status: 'completed' },
   { id: '2', title: 'Arrived at Pickup', subtitle: 'Reached at pickup point.', timestamp: '18 May 11:18', status: 'completed' },
@@ -38,12 +52,8 @@ const routeCoordinates: LatLng[] = [
   { latitude: -6.7812, longitude: 39.2210 },
 ];
 
-export default function TrackingHistoryScreen() {
+export default function TripDetailsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ tripId?: string }>();
-  const tripId = params.tripId || 'JKL6481M6326';
-  const insets = useSafeAreaInsets();
-  
   const sheetRef = useRef<BottomSheet>(null);
   const lastSheetIndexRef = useRef<number>(INITIAL_INDEX);
   const [sheetIndex, setSheetIndex] = useState<number>(INITIAL_INDEX);
@@ -68,7 +78,7 @@ export default function TrackingHistoryScreen() {
 
   const enterFullScreen = useCallback(() => {
     lastSheetIndexRef.current = sheetIndex;
-    sheetRef.current?.close();
+    sheetRef.current?.close(); // hides sheet
     setIsMapFullScreen(true);
   }, [sheetIndex]);
 
@@ -118,11 +128,11 @@ export default function TrackingHistoryScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.safeArea}>
       <StatusBar style="dark" translucent backgroundColor="transparent" />
       {Platform.OS === 'android' && <RNStatusBar barStyle="dark-content" translucent backgroundColor="transparent" />}
 
-      {/* Map pinned behind */}
+      {/* Map always pinned behind */}
       <MapView
         style={StyleSheet.absoluteFill}
         provider={PROVIDER_GOOGLE}
@@ -135,8 +145,8 @@ export default function TrackingHistoryScreen() {
       </MapView>
 
       {/* Header over map */}
-        <View style={[styles.header, { top: (Platform.OS === 'android' ? 24 : 16) + insets.top }]}>
-          <TouchableOpacity
+      <View style={styles.header}>
+        <TouchableOpacity
           onPress={() => {
             if (router.canGoBack()) {
               router.back();
@@ -144,23 +154,16 @@ export default function TrackingHistoryScreen() {
               router.replace('/trips');
             }
           }}
-            style={styles.backButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="arrow-back" size={22} color="#222222" />
-          </TouchableOpacity>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Trip Details</Text>
-        </View>
+      </View>
 
       {/* Full-screen toggle */}
-      <TouchableOpacity
-        style={[
-          styles.expandButton,
-          { top: (Platform.OS === 'android' ? 24 : 16) + insets.top },
-        ]}
-        activeOpacity={0.8}
-        onPress={toggleMapMode}
-      >
+      <TouchableOpacity style={styles.expandButton} activeOpacity={0.8} onPress={toggleMapMode}>
         <Ionicons name={isMapFullScreen ? 'close' : 'expand'} size={20} color="#C8202F" />
       </TouchableOpacity>
 
@@ -193,7 +196,7 @@ export default function TrackingHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },

@@ -13,11 +13,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
 import { Image as ExpoImage } from 'expo-image';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, LatLng } from 'react-native-maps';
 import { loadSvgFromAsset } from '@/utils/svgLoader';
 
 // SVG imports
 const truckSvg = require('@/assets/screen-asset/truck.svg');
-const smallTruckSvg = require('@/assets/screen-asset/small-truck.svg');
 const callButtonSvg = require('@/assets/screen-asset/callButton.svg');
 const dashedLineSvg = require('@/assets/screen-asset/dashed-line.svg');
 const trackingTruckSvg = require('@/assets/screen-asset/tracking-truck.svg');
@@ -89,6 +89,15 @@ const mockTripDetails: TripDetails = {
   },
 };
 
+const routeCoordinates: LatLng[] = [
+  { latitude: -6.7924, longitude: 39.2083 },
+  { latitude: -6.7900, longitude: 39.2105 },
+  { latitude: -6.7881, longitude: 39.2120 },
+  { latitude: -6.7855, longitude: 39.2142 },
+  { latitude: -6.7830, longitude: 39.2178 },
+  { latitude: -6.7812, longitude: 39.2210 },
+];
+
 export default function TripDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tripId?: string }>();
@@ -96,13 +105,13 @@ export default function TripDetailsScreen() {
   
   const [tripDetails] = useState<TripDetails>(mockTripDetails);
   const [truckImageXml, setTruckImageXml] = useState<string>('');
-  const [smallTruckXml, setSmallTruckXml] = useState<string>('');
   const [callButtonXml, setCallButtonXml] = useState<string>('');
   const [dashedLineXml, setDashedLineXml] = useState<string>('');
   const [trackingTruckXml, setTrackingTruckXml] = useState<string>('');
   const [trackingStatusLineXml, setTrackingStatusLineXml] = useState<string>('');
   const [trackingStatusLine2Xml, setTrackingStatusLine2Xml] = useState<string>('');
   const [greenDotXml, setGreenDotXml] = useState<string>('');
+  const [isMapFullScreen, setIsMapFullScreen] = useState(false);
 
   React.useEffect(() => {
     const loadSvgs = async () => {
@@ -110,7 +119,6 @@ export default function TripDetailsScreen() {
         return;
       }
       const truck = await loadSvgFromAsset(truckSvg);
-      const smallTruck = await loadSvgFromAsset(smallTruckSvg);
       const callButton = await loadSvgFromAsset(callButtonSvg);
       const dashedLine = await loadSvgFromAsset(dashedLineSvg);
       const trackingTruck = await loadSvgFromAsset(trackingTruckSvg);
@@ -118,7 +126,6 @@ export default function TripDetailsScreen() {
       const trackingStatusLine2 = await loadSvgFromAsset(trackingStatusLine2Svg);
       const greenDot = await loadSvgFromAsset(greenDotSvg);
       if (truck) setTruckImageXml(truck);
-      if (smallTruck) setSmallTruckXml(smallTruck);
       if (callButton) setCallButtonXml(callButton);
       if (dashedLine) setDashedLineXml(dashedLine);
       if (trackingTruck) setTrackingTruckXml(trackingTruck);
@@ -179,6 +186,14 @@ export default function TripDetailsScreen() {
     console.log('View quotation for trip:', tripId);
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/trips');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
@@ -186,7 +201,7 @@ export default function TripDetailsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -204,25 +219,26 @@ export default function TripDetailsScreen() {
       >
         {/* Map View */}
         <View style={styles.mapContainer}>
-          <View style={styles.mapPlaceholder}>
-            <Text style={[styles.mapPlaceholderText, { fontFamily: fontFamilyRegular }]}>
-              Map View
-            </Text>
-            <Text style={[styles.mapPlaceholderSubtext, { fontFamily: fontFamilyRegular }]}>
-              Route visualization will be displayed here
-            </Text>
-            {/* Truck icon on map */}
-            <View style={styles.mapTruckIcon}>
-              {Platform.OS === 'web' ? (
-                <ExpoImage source={smallTruckSvg} style={styles.mapTruckImage} contentFit="contain" />
-              ) : (
-                smallTruckXml ? (
-                  <SvgXml xml={smallTruckXml} width={32} height={32} />
-                ) : null
-              )}
-            </View>
-          </View>
-          <TouchableOpacity style={styles.mapExpandButton}>
+          <MapView
+            style={StyleSheet.absoluteFill}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={{
+              latitude: routeCoordinates[0].latitude,
+              longitude: routeCoordinates[0].longitude,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+            scrollEnabled
+            zoomEnabled
+          >
+            <Polyline coordinates={routeCoordinates} strokeColor="#C8202F" strokeWidth={4} />
+            <Marker
+              coordinate={routeCoordinates[routeCoordinates.length - 1]}
+              title="Vehicle"
+              description="En route"
+            />
+          </MapView>
+          <TouchableOpacity style={styles.mapExpandButton} onPress={() => setIsMapFullScreen(true)}>
             <Ionicons name="expand" size={20} color="#C8202F" />
           </TouchableOpacity>
         </View>
@@ -557,6 +573,37 @@ export default function TripDetailsScreen() {
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {isMapFullScreen && (
+        <View style={styles.fullscreenMapOverlay}>
+          <MapView
+            style={StyleSheet.absoluteFill}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={{
+              latitude: routeCoordinates[0].latitude,
+              longitude: routeCoordinates[0].longitude,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+            scrollEnabled
+            zoomEnabled
+          >
+            <Polyline coordinates={routeCoordinates} strokeColor="#C8202F" strokeWidth={4} />
+            <Marker
+              coordinate={routeCoordinates[routeCoordinates.length - 1]}
+              title="Vehicle"
+              description="En route"
+            />
+          </MapView>
+          <TouchableOpacity
+            style={styles.fullscreenCloseButton}
+            onPress={() => setIsMapFullScreen(false)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={20} color="#C8202F" />
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -643,6 +690,35 @@ const styles = StyleSheet.create({
       shadowRadius: 4,
       elevation: 4,
     }),
+  },
+  fullscreenMapOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
+    zIndex: 10,
+  },
+  fullscreenCloseButton: {
+    position: 'absolute',
+    top: Platform.select({ ios: 20, android: 28, default: 20 }),
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0px 4px 12px rgba(0,0,0,0.15)' }
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 6,
+          elevation: 6,
+        }),
   },
   card: {
     backgroundColor: '#FFFFFF',

@@ -9,10 +9,12 @@ import {
   Text,
   ActivityIndicator,
   TextInput,
+  Modal,
+  Pressable,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components/dashboard/Header';
 import { QuoteCard } from '@/components/dashboard/QuoteCard';
@@ -27,87 +29,151 @@ const quotesEmptySvg = `<svg width="72" height="70" viewBox="0 0 72 70" fill="no
 </g>
 </svg>`;
 
-type QuoteStatus = 'Pending' | 'Approved' | 'Rejected';
+type QuoteStatus = 'Pending' | 'Accepted' | 'Rejected' | 'Awaiting Bid' | 'Completed';
+type QuoteVisibility = 'Public' | 'Private';
+type DurationFilter = 'Last 30 Days' | 'Last Week' | '2024' | '2023' | '2022' | 'Custom';
 
 interface Quote {
   quoteId: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: QuoteStatus;
+  visibility: QuoteVisibility;
   pickupLocation: string;
   dropLocation: string;
   cargoType?: string;
   bodyType?: string;
   weight?: string;
+  createdAt: string;
 }
 
 // Mock quotes data (will be replaced with API call later)
 const mockQuotes: Quote[] = [
   {
     quoteId: 'JKL4255M842',
-    status: 'Pending',
+    status: 'Awaiting Bid',
+    visibility: 'Public',
     pickupLocation: 'Dar es Salaam',
     dropLocation: 'Arusha',
     cargoType: 'Coal',
     bodyType: 'Open body',
     weight: '100 Tons',
+    createdAt: '2024-12-01',
   },
   {
     quoteId: 'JKL4255M843',
     status: 'Pending',
+    visibility: 'Public',
     pickupLocation: 'Mombasa',
     dropLocation: 'Nairobi',
     cargoType: 'Grain',
     bodyType: 'Closed body',
     weight: '80 Tons',
+    createdAt: '2024-11-18',
   },
   {
     quoteId: 'JKL4255M844',
-    status: 'Approved',
+    status: 'Accepted',
+    visibility: 'Private',
     pickupLocation: 'Kampala',
     dropLocation: 'Kigali',
     cargoType: 'Cement',
     bodyType: 'Open body',
     weight: '120 Tons',
+    createdAt: '2024-10-05',
   },
   {
     quoteId: 'JKL4255M845',
-    status: 'Approved',
+    status: 'Accepted',
+    visibility: 'Private',
     pickupLocation: 'Nairobi',
     dropLocation: 'Mombasa',
     cargoType: 'Steel',
     bodyType: 'Closed body',
     weight: '90 Tons',
+    createdAt: '2023-12-15',
   },
   {
     quoteId: 'JKL4255M846',
     status: 'Rejected',
+    visibility: 'Private',
     pickupLocation: 'Arusha',
     dropLocation: 'Dar es Salaam',
     cargoType: 'Furniture',
     bodyType: 'Open body',
     weight: '50 Tons',
+    createdAt: '2022-07-20',
   },
   {
     quoteId: 'JKL4255M847',
     status: 'Pending',
+    visibility: 'Public',
     pickupLocation: 'Dodoma',
     dropLocation: 'Tanga',
     cargoType: 'Machinery',
     bodyType: 'Closed body',
     weight: '75 Tons',
+    createdAt: '2024-12-08',
+  },
+  {
+    quoteId: 'JKL4255M848',
+    status: 'Completed',
+    visibility: 'Public',
+    pickupLocation: 'Zanzibar',
+    dropLocation: 'Dar es Salaam',
+    cargoType: 'Electronics',
+    bodyType: 'Closed body',
+    weight: '40 Tons',
+    createdAt: '2023-05-12',
   },
 ];
 
 export default function QuotesScreen() {
-  const router = useRouter();
-  const [selectedFilter, setSelectedFilter] = useState<QuoteStatus>('Pending');
+  const [selectedVisibility, setSelectedVisibility] = useState<QuoteVisibility>('Public');
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<QuoteStatus[]>([]);
+  const [durationFilter, setDurationFilter] = useState<DurationFilter | null>(null);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [tempStatusFilter, setTempStatusFilter] = useState<QuoteStatus[]>([]);
+  const [tempDurationFilter, setTempDurationFilter] = useState<DurationFilter | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>(mockQuotes);
 
   // Filter and search quotes
   const filteredQuotes = useMemo(() => {
-    let filtered = quotes.filter((quote) => quote.status === selectedFilter);
+    let filtered = quotes.filter((quote) => quote.visibility === selectedVisibility);
+
+    if (statusFilter.length > 0) {
+      filtered = filtered.filter((quote) => statusFilter.includes(quote.status));
+    }
+
+    if (durationFilter) {
+      const now = new Date();
+      filtered = filtered.filter((quote) => {
+        const created = new Date(quote.createdAt);
+        if (Number.isNaN(created.getTime())) return true;
+
+        switch (durationFilter) {
+          case 'Last 30 Days': {
+            const days30 = new Date(now);
+            days30.setDate(now.getDate() - 30);
+            return created >= days30;
+          }
+          case 'Last Week': {
+            const week = new Date(now);
+            week.setDate(now.getDate() - 7);
+            return created >= week;
+          }
+          case '2024':
+          case '2023':
+          case '2022':
+            return created.getFullYear().toString() === durationFilter;
+          case 'Custom':
+            return true;
+          default:
+            return true;
+        }
+      });
+    }
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -123,16 +189,7 @@ export default function QuotesScreen() {
     }
 
     return filtered;
-  }, [quotes, selectedFilter, searchQuery]);
-
-  // Get counts for each status
-  const statusCounts = useMemo(() => {
-    return {
-      Pending: quotes.filter((q) => q.status === 'Pending').length,
-      Approved: quotes.filter((q) => q.status === 'Approved').length,
-      Rejected: quotes.filter((q) => q.status === 'Rejected').length,
-    };
-  }, [quotes]);
+  }, [quotes, selectedVisibility, searchQuery, statusFilter, durationFilter]);
 
   // Load quotes (will be replaced with API call)
   const loadQuotes = useCallback(async () => {
@@ -175,22 +232,22 @@ export default function QuotesScreen() {
       default: 'Figtree',
     });
 
-    const statuses: QuoteStatus[] = ['Pending', 'Approved', 'Rejected'];
+    const visibilities: QuoteVisibility[] = ['Public', 'Private'];
 
     return (
       <View style={styles.segmentContainer}>
-        {statuses.map((status, index) => {
-          const isSelected = selectedFilter === status;
+        {visibilities.map((visibility, index) => {
+          const isSelected = selectedVisibility === visibility;
           return (
             <TouchableOpacity
-              key={status}
+              key={visibility}
               style={[
                 styles.segmentTab,
                 isSelected && styles.segmentTabActive,
                 index === 0 && styles.segmentTabFirst,
-                index === statuses.length - 1 && styles.segmentTabLast,
+                index === visibilities.length - 1 && styles.segmentTabLast,
               ]}
-              onPress={() => setSelectedFilter(status)}
+              onPress={() => setSelectedVisibility(visibility)}
               activeOpacity={0.7}
             >
               <Text
@@ -200,7 +257,7 @@ export default function QuotesScreen() {
                   isSelected && styles.segmentTabTextActive,
                 ]}
               >
-                {status}
+                {visibility}
               </Text>
             </TouchableOpacity>
           );
@@ -265,7 +322,18 @@ export default function QuotesScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={styles.filterIconButton} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={[
+              styles.filterIconButton,
+              (statusFilter.length > 0 || durationFilter) && styles.filterIconButtonActive,
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              setTempStatusFilter(statusFilter);
+              setTempDurationFilter(durationFilter);
+              setFilterModalVisible(true);
+            }}
+          >
             <Ionicons name="filter-outline" size={20} color="#666666" />
           </TouchableOpacity>
         </View>
@@ -290,13 +358,126 @@ export default function QuotesScreen() {
               message={
                 searchQuery.trim()
                   ? `No quotes found matching "${searchQuery}"`
-                  : `No ${selectedFilter.toLowerCase()} quotes found`
+                  : `No ${selectedVisibility.toLowerCase()} quotes found`
               }
               svgSource={quotesEmptySvg}
             />
           </View>
         )}
       </View>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setFilterModalVisible(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { fontFamily: fontFamilyRegular }]}>Filters</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setTempStatusFilter([]);
+                  setTempDurationFilter(null);
+                }}
+              >
+                <Text style={[styles.clearFilterText, { fontFamily: fontFamilyRegular }]}>Clear Filter</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={[styles.sectionLabel, { fontFamily: fontFamilyRegular }]}>Status</Text>
+              <View style={styles.chipGroup}>
+                {(['Accepted', 'Pending', 'Rejected', 'Awaiting Bid', 'Completed'] as QuoteStatus[]).map(
+                  (status) => {
+                    const isSelected = tempStatusFilter.includes(status);
+                    return (
+                      <TouchableOpacity
+                        key={status}
+                        style={[styles.chip, isSelected && styles.chipSelected]}
+                        onPress={() => {
+                          setTempStatusFilter((prev) =>
+                            prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+                          );
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            isSelected && styles.chipTextSelected,
+                            { fontFamily: fontFamilyRegular },
+                          ]}
+                        >
+                          {status}
+                        </Text>
+                        {isSelected && (
+                          <Ionicons name="close" size={14} color="#C8202F" style={styles.chipCloseIcon} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }
+                )}
+              </View>
+
+              <Text style={[styles.sectionLabel, { fontFamily: fontFamilyRegular }]}>Duration</Text>
+              <View style={styles.chipGroup}>
+                {(['Last 30 Days', 'Last Week', '2024', '2023', '2022', 'Custom'] as DurationFilter[]).map(
+                  (duration) => {
+                    const isSelected = tempDurationFilter === duration;
+                    return (
+                      <TouchableOpacity
+                        key={duration}
+                        style={[styles.chip, isSelected && styles.chipSelected]}
+                        onPress={() => setTempDurationFilter(isSelected ? null : duration)}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            isSelected && styles.chipTextSelected,
+                            { fontFamily: fontFamilyRegular },
+                          ]}
+                        >
+                          {duration}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  }
+                )}
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setFilterModalVisible(false);
+                  setTempStatusFilter(statusFilter);
+                  setTempDurationFilter(durationFilter);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.secondaryButtonText, { fontFamily: fontFamilySemiBold }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => {
+                  setStatusFilter(tempStatusFilter);
+                  setDurationFilter(tempDurationFilter);
+                  setFilterModalVisible(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.primaryButtonText, { fontFamily: fontFamilySemiBold }]}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <BottomTabNavigator />
     </SafeAreaView>
@@ -392,6 +573,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  filterIconButtonActive: {
+    borderColor: '#C8202F',
+    backgroundColor: '#FDEEEF',
+  },
   listContent: {
     padding: 20,
     paddingBottom: 100, // Space for bottom tab navigator
@@ -405,5 +590,107 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+    maxHeight: '80%',
+  },
+  modalHandle: {
+    alignSelf: 'center',
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E0E0E0',
+    marginBottom: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: Platform.OS === 'web' ? '600' : 'normal',
+    color: '#000000',
+  },
+  clearFilterText: {
+    fontSize: 14,
+    color: '#C8202F',
+  },
+  sectionLabel: {
+    fontSize: 14,
+    color: '#6A6A6A',
+    marginBottom: 12,
+  },
+  chipGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  chipSelected: {
+    borderColor: '#C8202F',
+    backgroundColor: '#FDEEEF',
+  },
+  chipText: {
+    fontSize: 13,
+    color: '#606060',
+  },
+  chipTextSelected: {
+    color: '#C8202F',
+  },
+  chipCloseIcon: {
+    marginLeft: 6,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 8,
+  },
+  primaryButton: {
+    flex: 1,
+    backgroundColor: '#C8202F',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: '#FDEEEF',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    color: '#C8202F',
+    fontSize: 15,
   },
 });

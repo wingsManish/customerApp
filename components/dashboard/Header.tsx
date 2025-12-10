@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
 import { useRouter } from 'expo-router';
@@ -17,7 +16,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ companyName, location }) => {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [displayCompanyName, setDisplayCompanyName] = React.useState(companyName || 'Company');
 
   React.useEffect(() => {
@@ -47,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({ companyName, location }) => {
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
+    <View style={styles.container}>
       <View style={styles.leftSection}>
         <View style={styles.companyRow}>
           <SvgXml xml={companySvg} width={14} height={13} />
@@ -98,7 +96,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
   },
   leftSection: {

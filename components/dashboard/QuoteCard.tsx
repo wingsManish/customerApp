@@ -11,7 +11,7 @@ const weightSvg = require('@/assets/screen-asset/weight.svg');
 
 interface QuoteCardProps {
   quoteId: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: 'Pending' | 'Accepted' | 'Rejected' | 'Awaiting Bid' | 'Completed';
   pickupLocation: string;
   dropLocation: string;
   cargoType?: string;
@@ -74,10 +74,14 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({
     switch (status) {
       case 'Pending':
         return '#FFF3E0';
-      case 'Approved':
+      case 'Accepted':
         return '#E8F5E9';
       case 'Rejected':
         return '#FFEBEE';
+      case 'Awaiting Bid':
+        return '#F0F0F0';
+      case 'Completed':
+        return '#E3F2FD';
       default:
         return '#F5F5F5';
     }
@@ -87,10 +91,14 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({
     switch (status) {
       case 'Pending':
         return '#FF9800';
-      case 'Approved':
+      case 'Accepted':
         return '#4CAF50';
       case 'Rejected':
         return '#F44336';
+      case 'Awaiting Bid':
+        return '#757575';
+      case 'Completed':
+        return '#1976D2';
       default:
         return '#666666';
     }
