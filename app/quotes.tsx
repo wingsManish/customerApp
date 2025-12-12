@@ -16,10 +16,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Header } from '@/components/dashboard/Header';
+import { SvgXml } from 'react-native-svg';
+import { Image as ExpoImage } from 'expo-image';
 import { QuoteCard } from '@/components/dashboard/QuoteCard';
 import { EmptyStateCard } from '@/components/dashboard/EmptyStateCard';
 import { BottomTabNavigator } from '@/components/dashboard/BottomTabNavigator';
+import { loadSvgFromAsset } from '@/utils/svgLoader';
+import { useRouter } from 'expo-router';
+
+const addQuoteSvg = require('@/assets/screen-asset/add-quote.svg');
 
 // Empty state SVG for quotes
 const quotesEmptySvg = `<svg width="72" height="70" viewBox="0 0 72 70" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -70,7 +75,7 @@ const mockQuotes: Quote[] = [
     createdAt: '2024-11-18',
   },
   {
-    quoteId: 'JKL4255M844',
+    quoteId: 'JKL4255M849',
     status: 'Accepted',
     visibility: 'Private',
     pickupLocation: 'Kampala',
@@ -124,9 +129,22 @@ const mockQuotes: Quote[] = [
     weight: '40 Tons',
     createdAt: '2023-05-12',
   },
+  {
+    quoteId: 'JKL4255M849',
+    status: 'Accepted',
+    visibility: 'Public',
+    pickupLocation: 'Dodoma',
+    dropLocation: 'Morogoro',
+    cargoType: 'Timber',
+    bodyType: 'Open body',
+    weight: '60 Tons',
+    createdAt: '2024-12-09',
+  },
 ];
 
 export default function QuotesScreen() {
+  const router = useRouter();
+  const [addQuoteXml, setAddQuoteXml] = useState<string>('');
   const [selectedVisibility, setSelectedVisibility] = useState<QuoteVisibility>('Public');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<QuoteStatus[]>([]);
@@ -223,6 +241,14 @@ export default function QuotesScreen() {
     loadQuotes();
   }, [loadQuotes]);
 
+  React.useEffect(() => {
+    const loadAddQuoteIcon = async () => {
+      const xml = await loadSvgFromAsset(addQuoteSvg);
+      if (xml) setAddQuoteXml(xml);
+    };
+    loadAddQuoteIcon();
+  }, []);
+
   // Segment control component
   const SegmentControl = () => {
     const fontFamilySemiBold = Platform.select({
@@ -277,9 +303,7 @@ export default function QuotesScreen() {
       bodyType={item.bodyType}
       weight={item.weight}
       onPress={() => {
-        // Navigate to quote details (will create this screen later)
-        console.log('Navigate to quote details:', item.quoteId);
-        // router.push(`/quotes/${item.quoteId}`);
+        router.push(`/quote-details/${item.quoteId}`);
       }}
     />
   );
@@ -290,11 +314,19 @@ export default function QuotesScreen() {
     web: 'Figtree',
     default: 'Figtree',
   });
+  const fontFamilySemiBold = Platform.select({
+    ios: 'Figtree-SemiBold',
+    android: 'Figtree-SemiBold',
+    web: 'Figtree',
+    default: 'Figtree',
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <Header location="Magodo, Ikeja" />
+      <StatusBar style="dark" backgroundColor="#FFFFFF" />
+      <View style={styles.topBar}>
+        <Text style={[styles.topBarTitle, { fontFamily: fontFamilySemiBold }]}>Quotes</Text>
+      </View>
 
       <View style={styles.content}>
         {/* Filter Section */}
@@ -480,6 +512,21 @@ export default function QuotesScreen() {
       </Modal>
 
       <BottomTabNavigator />
+
+      {/* Add Quote FAB */}
+      <TouchableOpacity
+        style={styles.addQuoteFab}
+        activeOpacity={0.8}
+        onPress={() => {
+          router.push('/add-quote');
+        }}
+      >
+        {addQuoteXml ? (
+          <SvgXml xml={addQuoteXml} width={44} height={44} />
+        ) : (
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        )}
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -488,6 +535,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  topBar: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  topBarTitle: {
+    fontSize: 20,
+    color: '#111111',
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -526,7 +584,7 @@ const styles = StyleSheet.create({
   },
   segmentTabText: {
     fontSize: 14,
-    fontWeight: Platform.OS === 'web' ? '600' : 'normal',
+    fontWeight: '600',
     color: '#606060', // Grey for unselected tabs
   },
   segmentTabTextActive: {
@@ -591,6 +649,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  addQuoteFab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 100,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingLeft: 24,
+    paddingRight: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    opacity: 1,
+  },
+  addQuoteIcon: {
+    width: 58,
+    height: 58,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -621,7 +701,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: Platform.OS === 'web' ? '600' : 'normal',
+    fontWeight: '600',
     color: '#000000',
   },
   clearFilterText: {

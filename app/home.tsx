@@ -263,7 +263,7 @@ export default function HomeScreen() {
                       cargoType={quote.cargoType}
                       bodyType={quote.bodyType}
                       weight={quote.weight}
-                      onPress={() => router.push(`/quotes/${quote.quoteId}`)}
+                      onPress={() => router.push(`/quote-details/${quote.quoteId}`)}
                     />
                   </View>
                 )}
