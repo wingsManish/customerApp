@@ -83,36 +83,53 @@ export default function ProfileScreen() {
   }, []);
 
   const handlePickFromDevice = useCallback(async () => {
-    const allowed = await requestPermission('library');
-    if (!allowed) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.9,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-    if (result.canceled) return;
-    const uri = result.assets?.[0]?.uri;
-    if (uri) {
-      setAvatar(uri);
-      setSheet('none');
+    try {
+      const allowed = await requestPermission('library');
+      if (!allowed) return;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: [ImagePicker.MediaType.image],
+        quality: 0.9,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+      if (result.canceled) return;
+      const uri = result.assets?.[0]?.uri;
+      if (uri) {
+        setAvatar(uri);
+        setSheet('none');
+      }
+    } catch (error) {
+      Alert.alert('Something went wrong', 'Unable to open the gallery right now.');
     }
   }, [requestPermission]);
 
   const handleTakePhoto = useCallback(async () => {
-    const allowed = await requestPermission('camera');
-    if (!allowed) return;
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.9,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-    if (result.canceled) return;
-    const uri = result.assets?.[0]?.uri;
-    if (uri) {
-      setAvatar(uri);
-      setSheet('none');
+    try {
+      const allowed = await requestPermission('camera');
+      if (!allowed) return;
+      const hasCamera = await ImagePicker.isCameraAvailableAsync?.();
+      if (hasCamera === false) {
+        Alert.alert('Camera not available', 'Use “Select from Device” on this simulator.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: [ImagePicker.MediaType.image],
+        quality: 0.9,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+      if (result.canceled) return;
+      const uri = result.assets?.[0]?.uri;
+      if (uri) {
+        setAvatar(uri);
+        setSheet('none');
+      }
+    } catch (error: any) {
+      const message =
+        error?.message?.includes('Camera not available')
+          ? 'Camera is not available on this simulator. Please try on a device.'
+          : 'Unable to open the camera right now.';
+      Alert.alert('Camera error', message);
     }
   }, [requestPermission]);
 
