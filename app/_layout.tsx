@@ -3,7 +3,6 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider } from 'react-native-paper';
@@ -22,32 +21,11 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   
   // Load Figtree font TTF files for all platforms (local assets)
-  const [fontsLoaded] = useFonts({
+  const [_fontsLoaded] = useFonts({
     'Figtree-Regular': require('@/assets/fonts/Figtree-Regular.ttf'),
     'Figtree-Medium': require('@/assets/fonts/Figtree-Medium.ttf'),
     'Figtree-SemiBold': require('@/assets/fonts/Figtree-SemiBold.ttf'),
   });
-
-  useEffect(() => {
-    // Hide splash screen after fonts are loaded (or immediately on web)
-    if (Platform.OS === 'web' || fontsLoaded) {
-      const timer = setTimeout(() => {
-        SplashScreen.hideAsync().catch((error) => {
-          console.error('Error hiding splash screen:', error);
-        });
-      }, 100);
-      return () => clearTimeout(timer);
-    } else {
-      // If fonts fail to load after 5 seconds, hide splash anyway
-      const fallbackTimer = setTimeout(() => {
-        console.warn('Fonts not loaded after 5s, hiding splash anyway');
-        SplashScreen.hideAsync().catch((error) => {
-          console.error('Error hiding splash screen:', error);
-        });
-      }, 5000);
-      return () => clearTimeout(fallbackTimer);
-    }
-  }, [fontsLoaded]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -56,7 +34,6 @@ export default function RootLayout() {
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
-              <Stack.Screen name="splash" />
               <Stack.Screen name="welcome" />
               <Stack.Screen name="login" />
               <Stack.Screen name="otp-verification" />

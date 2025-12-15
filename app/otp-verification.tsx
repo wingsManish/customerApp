@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -44,6 +44,8 @@ export default function OTPVerificationScreen() {
   const [resendTimer, setResendTimer] = useState(RESEND_INTERVAL);
   const [isResending, setIsResending] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  // Prevent duplicate submissions (auto-complete + button spam or rerenders)
+  const isVerifyingRef = useRef(false);
 
   // If phoneNumber is missing from params, try to get it from session
   useEffect(() => {
@@ -81,10 +83,13 @@ export default function OTPVerificationScreen() {
 
   // Auto-verify when OTP is complete
   const handleOTPComplete = async (otpValue: string) => {
+    if (isVerifyingRef.current || isLoading || isVerified) return;
     await handleVerify(otpValue);
   };
 
   const handleVerify = async (otpValue?: string) => {
+    if (isVerifyingRef.current || isLoading || isVerified) return;
+    isVerifyingRef.current = true;
     const otp = otpValue || otpDigits.join('');
     
     if (otp.length !== OTP_LENGTH) {
@@ -146,6 +151,7 @@ export default function OTPVerificationScreen() {
       setOtpDigits(Array(OTP_LENGTH).fill(''));
     } finally {
       setIsLoading(false);
+      isVerifyingRef.current = false;
     }
   };
 
