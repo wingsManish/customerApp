@@ -63,8 +63,10 @@
       "eas": {
         "projectId": "978cae1e-ba30-4bd1-9c0d-0d2a8b23d20c"
       },
-      "apiEnabled": false,
-      "apiUrl": "https://api.example.com"
+      "apiEnabled": true,
+      "apiUrl": "https://tba-truckowner-dev.azurewebsites.net",
+      "authApiUrl": "https://tba-authentication-dev.azurewebsites.net",
+      "clientKey": "customer"
     }
   }
 }

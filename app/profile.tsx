@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BottomTabNavigator } from '@/components/dashboard/BottomTabNavigator';
 import * as ImagePicker from 'expo-image-picker';
+import { logoutAndRedirect } from '@/services/authService';
 
 const mockUser = {
   name: 'David Beckham',
@@ -137,6 +138,14 @@ export default function ProfileScreen() {
     setAvatar(null);
     setSheet('none');
   }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logoutAndRedirect(router.replace);
+    } catch (error) {
+      Alert.alert('Logout failed', 'Please try again.');
+    }
+  }, [router.replace]);
 
   const renderSheet = () => {
     if (sheet === 'photo') {
@@ -260,7 +269,7 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.9} onPress={() => {}}>
+        <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.9} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={18} color="#C8202F" style={{ marginRight: 8 }} />
           <Text style={[styles.logoutText, { fontFamily: fontSemi }]}>Logout</Text>
         </TouchableOpacity>

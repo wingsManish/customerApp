@@ -28,6 +28,10 @@ export default function WelcomeScreen() {
     router.push('/login');
   };
 
+  const handleApiTest = () => {
+    router.push('/api-test');
+  };
+
   const handleTermsOfService = () => {
     // Navigate to terms of service screen or open URL
     Linking.openURL('https://example.com/terms');
@@ -79,6 +83,15 @@ export default function WelcomeScreen() {
               contentStyle={styles.buttonContent}
             >
               Get Started
+            </Button>
+
+            <Button
+              mode="outlined"
+              onPress={handleApiTest}
+              style={styles.secondaryButton}
+              textColor="#C8202F"
+            >
+              API Test
             </Button>
           </View>
 
@@ -179,6 +192,13 @@ const styles = StyleSheet.create({
     color: '#C8202F',
     textDecorationLine: 'underline',
     fontWeight: Platform.OS === 'web' ? '500' : 'normal',
+  },
+  secondaryButton: {
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    marginTop: 12,
+    borderColor: '#C8202F',
   },
 });
 

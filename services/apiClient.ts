@@ -15,9 +15,57 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
 // Configuration
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'https://api.example.com';
-// API is disabled by default. Set apiEnabled: true in app.json to enable
-const API_ENABLED = Constants.expoConfig?.extra?.apiEnabled === true;
+const API_BASE_URL =
+  (Constants.expoConfig?.extra?.apiUrl as string);
+const AUTH_BASE_URL =
+  (Constants.expoConfig?.extra?.authApiUrl as string) || API_BASE_URL;
+const AUTH_REFRESH_URL =
+  (Constants.expoConfig?.extra?.authRefreshUrl as string) ||
+  `${AUTH_BASE_URL}/Auth/refresh`;
+const DEFAULT_AUTH_TOKEN =
+  (Constants.expoConfig?.extra?.authToken as string) || 'test';
+const DEFAULT_REFRESH_TOKEN =
+  (Constants.expoConfig?.extra?.refreshTokenDefault as string) || '';
+
+const escapeSingleQuotes = (value: string): string =>
+  value.replace(/'/g, `'\"'\"'`);
+
+const buildCurlCommand = (
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body?: unknown
+): string => {
+  const headerLines = Object.entries(headers).map(
+    ([key, val]) => `  -H '${key}: ${escapeSingleQuotes(String(val))}'`
+  );
+
+  let dataLine = '';
+  if (body !== undefined && body !== null) {
+    const asString =
+      typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+    dataLine = `  --data '${escapeSingleQuotes(asString)}'`;
+  }
+
+  const parts = [
+    `curl -X '${method}' '${url}' \\`,
+    ...headerLines.map((line, idx) =>
+      idx === headerLines.length - 1 && !dataLine ? line.replace(/ \\$/, '') : `${line} \\`
+    ),
+  ];
+
+  if (dataLine) {
+    parts.push(dataLine);
+  } else if (parts.length > 0) {
+    // remove trailing backslash on last header line
+    parts[parts.length - 1] = parts[parts.length - 1].replace(/ \\$/, '');
+  }
+
+  return parts.join('\n');
+};
+
+const appendLogToFile = async (entry: string) => {
+};
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 const MAX_RETRIES = 3;
 
@@ -27,7 +75,8 @@ const USER_TOKEN_KEY = 'user_token'; // Stored in SecureStore (highly sensitive)
 const REFRESH_TOKEN_KEY = 'refresh_token'; // Stored in SecureStore (highly sensitive)
 
 // Client configuration
-const CLIENT_KEY = 'customer'; // Fixed for Customer Mobile App
+const CLIENT_KEY =
+  (Constants.expoConfig?.extra?.clientKey as string) || 'customer'; // Fixed for Customer Mobile App
 
 // Standard API Response Format
 export interface ApiResponse<T> {
@@ -79,14 +128,28 @@ interface RequestConfig extends RequestInit {
   skipAppToken?: boolean; // Skip App Token (for app-token generation)
 }
 
+interface LoginResponsePayload {
+  jwtToken: string;
+  refreshToken?: string;
+  expiresIn?: number;
+}
+
+interface RefreshAppTokenPayload {
+  jwtToken: string;
+  refreshToken?: string;
+  expiresIn?: number;
+}
+
 class ApiClient {
   public baseURL: string; // Made public for authService to access
+  private authBaseURL: string;
   private defaultHeaders: Record<string, string>;
   private refreshPromise: Promise<string | null> | null = null;
   private appTokenPromise: Promise<string | null> | null = null;
 
   constructor() {
     this.baseURL = API_BASE_URL;
+    this.authBaseURL = AUTH_BASE_URL;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -147,51 +210,263 @@ class ApiClient {
 
   /**
    * Perform actual App Token generation
-   * Actual endpoint: POST /apptoken (not /auth/app-token)
+   * Actual endpoint: POST /Auth/apptoken
    * Response: { data: { jwtToken: "..." } }
    */
   private async performAppTokenGeneration(): Promise<string | null> {
-    // If API is disabled, return mock token
-    if (!API_ENABLED) {
-      const mockToken = 'mock_app_token_' + Date.now();
-      await this.saveAppToken(mockToken);
-      if (__DEV__) {
-        console.log('[API MOCK] Generated mock app token');
+    const authHeaderValue =
+      DEFAULT_AUTH_TOKEN?.startsWith('Bearer ')
+        ? DEFAULT_AUTH_TOKEN
+        : `Bearer ${DEFAULT_AUTH_TOKEN}`;
+
+    const sharedHeaders = {
+      ...this.defaultHeaders,
+      Authorization: authHeaderValue,
+      authToken: DEFAULT_AUTH_TOKEN,
+    };
+
+    const tryRequest = async (
+      url: string,
+      init: RequestInit,
+      expectJson: boolean = true
+    ): Promise<{ ok: boolean; status: number; data?: any; url: string }> => {
+      const response = await fetch(url, init);
+      if (!response.ok) {
+        let errorData: any = {};
+        if (expectJson) {
+          errorData = await response.json().catch(() => ({}));
+        }
+        return { ok: false, status: response.status, data: errorData, url };
       }
-      return mockToken;
-    }
+      const data = expectJson ? await response.json() : await response.text();
+      return { ok: true, status: response.status, data, url };
+    };
+
+    let lastAttemptCurl: string | null = null;
 
     try {
-      const response = await fetch(`${this.baseURL}/apptoken`, {
-        method: 'POST',
-        headers: this.defaultHeaders,
-        body: JSON.stringify({ clientKey: CLIENT_KEY }),
+      // Primary attempt (matches working curl): POST /Auth/apptoken?client={clientKey} with Bearer test and JSON body
+      const primaryUrl = `${this.authBaseURL}/Auth/apptoken?client=${encodeURIComponent(
+        CLIENT_KEY
+      )}`;
+      lastAttemptCurl = buildCurlCommand('POST', primaryUrl, sharedHeaders, {
+        clientKey: CLIENT_KEY,
       });
+      console.log('[APP TOKEN REQUEST]', { url: primaryUrl, method: 'POST' });
+      console.log('[APP TOKEN CURL]', lastAttemptCurl);
+      const primary = await tryRequest(
+        primaryUrl,
+        {
+          method: 'POST',
+          headers: sharedHeaders,
+          body: JSON.stringify({ clientKey: CLIENT_KEY }),
+        },
+        true
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (primary.ok) {
+        const result: any = primary.data;
+        const token =
+          result?.data?.jwtToken ||
+          result?.data?.token ||
+          result?.jwtToken ||
+          result?.token;
+        const success =
+          result?.success === true ||
+          result?.isSuccess === true ||
+          result?.statusCode === 200 ||
+          Boolean(token);
+        if (success && token) {
+          await this.saveAppToken(token);
+          return token;
+        }
+      } else if (primary.status !== 404) {
         throw new ApiError(
-          errorData.message || 'Failed to generate app token',
-          response.status,
-          errorData
+          primary.data?.message ||
+            `Failed to generate app token (${primary.status})`,
+          primary.status,
+          { ...primary.data, url: primary.url }
         );
       }
 
-      const result: ApiResponse<{ jwtToken: string }> = await response.json();
+      // Fallback attempt: POST /Auth/apptoken/apptoken with JSON body
+      const fallbackUrl = `${this.authBaseURL}/Auth/apptoken/apptoken`;
+      const fallback = await tryRequest(
+        fallbackUrl,
+        {
+          method: 'POST',
+          headers: sharedHeaders,
+          body: JSON.stringify({ clientKey: CLIENT_KEY }),
+        },
+        true
+      );
 
-      if (result.success && result.data?.jwtToken) {
-        await this.saveAppToken(result.data.jwtToken);
-        return result.data.jwtToken;
+      if (fallback.ok) {
+        const result: any = fallback.data;
+        const token =
+          result?.data?.jwtToken ||
+          result?.data?.token ||
+          result?.jwtToken ||
+          result?.token;
+        const success =
+          result?.success === true ||
+          result?.isSuccess === true ||
+          result?.statusCode === 200 ||
+          Boolean(token);
+        if (success && token) {
+          await this.saveAppToken(token);
+          return token;
+        }
+      } else {
+        throw new ApiError(
+          fallback.data?.message ||
+            `Failed to generate app token (${fallback.status})`,
+          fallback.status,
+          {
+            ...fallback.data,
+            url: fallback.url,
+            curl: lastAttemptCurl,
+          }
+        );
       }
 
       return null;
     } catch (error) {
+      if (lastAttemptCurl) {
+        console.log(
+          'Curl command used for app token generation:',
+          lastAttemptCurl
+        );
+      }
       console.error('App token generation failed:', error);
       if (error instanceof ApiError) {
         throw error;
       }
       return null;
     }
+  }
+
+  /**
+   * Perform user login against Auth service using app token (Bearer)
+   */
+  async login(
+    username: string,
+    password: string
+  ): Promise<ApiResponse<LoginResponsePayload>> {
+    const appToken = await this.generateAppToken();
+    if (!appToken) {
+      throw new ApiError('Failed to get app token for login', 500);
+    }
+
+    const loginCurl = buildCurlCommand(
+      'POST',
+      `${this.authBaseURL}/Auth/login`,
+      {
+        ...this.defaultHeaders,
+        Accept: '*/*',
+        Authorization: appToken.startsWith('Bearer ')
+          ? appToken
+          : `Bearer ${appToken}`,
+      },
+      { username, password }
+    );
+    console.log('[LOGIN REQUEST]', {
+      url: `${this.authBaseURL}/Auth/login`,
+      method: 'POST',
+    });
+    console.log('[LOGIN CURL]', loginCurl);
+
+    const response = await fetch(`${this.authBaseURL}/Auth/login`, {
+      method: 'POST',
+      headers: {
+        ...this.defaultHeaders,
+        Accept: '*/*',
+        Authorization: appToken.startsWith('Bearer ')
+          ? appToken
+          : `Bearer ${appToken}`,
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const json: ApiResponse<LoginResponsePayload> = await response
+      .json()
+      .catch(() => ({
+        statusCode: response.status,
+        success: false,
+        message: response.statusText,
+        data: null,
+      }));
+
+    if (!response.ok || !json?.data?.jwtToken) {
+      throw new ApiError(
+        json?.message || `Login failed (${response.status})`,
+        response.status,
+        json
+      );
+    }
+
+    // Save tokens if present
+    if (json.data?.jwtToken) {
+      await this.saveUserToken(json.data.jwtToken);
+    }
+    if (json.data?.refreshToken) {
+      await this.saveRefreshToken(json.data.refreshToken);
+    }
+
+    return json;
+  }
+
+  /**
+   * Refresh app token using refresh token (Auth refresh endpoint)
+   */
+  async refreshAppToken(refreshToken: string): Promise<ApiResponse<RefreshAppTokenPayload>> {
+    const refreshCurl = buildCurlCommand(
+      'POST',
+      AUTH_REFRESH_URL,
+      {
+        ...this.defaultHeaders,
+        Accept: '*/*',
+        Authorization: refreshToken,
+      },
+      undefined
+    );
+    console.log('[REFRESH REQUEST]', { url: AUTH_REFRESH_URL, method: 'POST' });
+    console.log('[REFRESH CURL]', refreshCurl);
+
+    const response = await fetch(AUTH_REFRESH_URL, {
+      method: 'POST',
+      headers: {
+        ...this.defaultHeaders,
+        Accept: '*/*',
+        Authorization: refreshToken,
+      },
+    });
+
+    const json: ApiResponse<RefreshAppTokenPayload> = await response
+      .json()
+      .catch(() => ({
+        statusCode: response.status,
+        success: false,
+        message: response.statusText,
+        data: null,
+      }));
+
+    if (!response.ok || !json?.data?.jwtToken) {
+      throw new ApiError(
+        json?.message || `Refresh failed (${response.status})`,
+        response.status,
+        json
+      );
+    }
+
+    if (json.data?.jwtToken) {
+      await this.saveAppToken(json.data.jwtToken);
+    }
+    if (json.data?.refreshToken) {
+      await this.saveRefreshToken(json.data.refreshToken);
+    }
+
+    return json;
   }
 
   /**
@@ -378,16 +653,6 @@ class ApiClient {
    * Response: { data: { jwtToken: "..." } }
    */
   private async performUserTokenRefresh(): Promise<string | null> {
-    // If API is disabled, return mock token
-    if (!API_ENABLED) {
-      const mockToken = 'mock_user_token_' + Date.now();
-      await this.saveUserToken(mockToken);
-      if (__DEV__) {
-        console.log('[API MOCK] Generated mock user token');
-      }
-      return mockToken;
-    }
-
     try {
       const refreshToken = await this.getRefreshToken();
       if (!refreshToken) {
@@ -505,6 +770,18 @@ class ApiClient {
       };
     }
 
+    // Log error context for debugging
+    try {
+      console.log('[API ERROR]', {
+        url: response.url,
+        status: response.status,
+        method: config.method || 'GET',
+        requestBody: config.body ?? null,
+      });
+    } catch {
+      // ignore logging failures
+    }
+
     // Handle 401 Unauthorized - try to refresh User Token
     if (response.status === 401 && !config.skipAuth && !config.skipAppToken) {
       const newToken = await this.refreshUserToken();
@@ -608,200 +885,9 @@ class ApiClient {
   }
 
   /**
-   * Generate mock response when API is disabled
-   * Returns realistic mock data based on the endpoint to allow app to progress
-   */
-  private generateMockResponse<T>(config: RequestConfig): ApiResponse<T> {
-    const url = config.url.toLowerCase();
-    const method = (config.method || 'GET').toUpperCase();
-
-    if (__DEV__) {
-      console.log(`[API MOCK] ${method} ${url} - API disabled, returning mock response`);
-    }
-
-    // Generate appropriate mock data based on endpoint
-    let mockData: any = null;
-    let message = 'Success (Mock)';
-
-    // Authentication endpoints
-    if (url.includes('/apptoken')) {
-      mockData = {
-        jwtToken: 'mock_app_token_' + Date.now(),
-      };
-      message = 'App token generated successfully';
-    } else if (url.includes('/login')) {
-      mockData = {
-        jwtToken: 'mock_user_token_' + Date.now(),
-        refreshToken: 'mock_refresh_token_' + Date.now(),
-        expiresIn: 3600,
-        user: {
-          id: 'mock_user_123',
-          orgId: 'mock_org_456',
-          roleId: 'mock_role_789',
-          regionCode: 'TZ',
-          clientType: 'customer',
-          username: 'mockuser',
-        },
-      };
-      message = 'Login successful';
-    } else if (url.includes('/refresh')) {
-      mockData = {
-        jwtToken: 'mock_user_token_refreshed_' + Date.now(),
-        expiresIn: 3600,
-      };
-      message = 'Token refreshed successfully';
-    }
-    // Company endpoints
-    else if (url.includes('/company') && method === 'POST') {
-      mockData = {
-        id: Math.floor(Math.random() * 10000),
-        name: 'Mock Company',
-        status: 1,
-        createdAt: new Date().toISOString(),
-      };
-      message = 'Company created successfully';
-    } else if (url.includes('/company') && method === 'PUT') {
-      mockData = {
-        id: Math.floor(Math.random() * 10000),
-        success: true,
-      };
-      message = 'Company updated successfully';
-    } else if (url.includes('/company') && method === 'GET') {
-      mockData = {
-        id: 1,
-        name: 'Mock Company',
-        ownerName: 'Mock Owner',
-        address1: 'Mock Address',
-        city: 'Mock City',
-        state: 'Mock State',
-        pinCode: '123456',
-        phone: '1234567890',
-        status: 1,
-      };
-      message = 'Company retrieved successfully';
-    }
-    // Bank details
-    else if (url.includes('/bankdetails')) {
-      mockData = {
-        id: Math.floor(Math.random() * 10000),
-        success: true,
-      };
-      message = 'Bank details updated successfully';
-    }
-    // Emergency details
-    else if (url.includes('/emergencydetails')) {
-      mockData = {
-        id: Math.floor(Math.random() * 10000),
-        success: true,
-      };
-      message = 'Emergency details updated successfully';
-    }
-    // Contact/Employee endpoints
-    else if (url.includes('/employee') || url.includes('/contact')) {
-      mockData = {
-        id: Math.floor(Math.random() * 10000),
-        employeeId: Math.floor(Math.random() * 10000),
-        success: true,
-      };
-      message = 'Contact information saved successfully';
-    }
-    // Attachment/Upload endpoints
-    else if (url.includes('/attachment') || url.includes('/upload')) {
-      mockData = {
-        id: Math.floor(Math.random() * 10000),
-        attachmentId: Math.floor(Math.random() * 10000),
-        fileName: 'mock_file.jpg',
-        fileUrl: 'https://example.com/mock_file.jpg',
-        success: true,
-      };
-      message = 'File uploaded successfully';
-    }
-    // Dashboard endpoints
-    else if (url.includes('/dashboard')) {
-      mockData = {
-        activeTrips: 1,
-        pendingTrips: 2,
-        requestedQuotes: 6,
-        completedTrips: 10,
-      };
-      message = 'Dashboard data retrieved successfully';
-    }
-    // Quotes endpoints
-    else if (url.includes('/quotes')) {
-      if (method === 'GET') {
-        mockData = [
-          {
-            id: 1,
-            quoteId: 'MOCK001',
-            status: 'Pending',
-            pickupLocation: 'Mock Location 1',
-            dropLocation: 'Mock Location 2',
-            cargoType: 'Mock Cargo',
-            weight: '100 Tons',
-          },
-        ];
-        message = 'Quotes retrieved successfully';
-      } else if (method === 'POST') {
-        mockData = {
-          id: Math.floor(Math.random() * 10000),
-          quoteId: 'MOCK' + Math.floor(Math.random() * 10000),
-          success: true,
-        };
-        message = 'Quote created successfully';
-      } else {
-        mockData = {
-          id: Math.floor(Math.random() * 10000),
-          success: true,
-        };
-        message = 'Quote updated successfully';
-      }
-    }
-    // Trips endpoints
-    else if (url.includes('/trip')) {
-      mockData = [
-        {
-          id: 1,
-          tripId: 'TRIP001',
-          status: 'In Progress',
-          fromLocation: 'Mock Location A',
-          toLocation: 'Mock Location B',
-          driverName: 'Mock Driver',
-          truckNumber: 'MOCK123',
-        },
-      ];
-      message = 'Trips retrieved successfully';
-    }
-    // Default: return success with empty object for POST/PUT/PATCH, empty array for GET
-    else {
-      if (method === 'GET') {
-        mockData = [];
-      } else {
-        mockData = {
-          id: Math.floor(Math.random() * 10000),
-          success: true,
-        };
-      }
-      message = 'Operation completed successfully';
-    }
-
-    return {
-      statusCode: 200,
-      success: true,
-      message,
-      data: mockData as T,
-    };
-  }
-
-  /**
    * Main request method
    */
   async request<T>(config: RequestConfig): Promise<ApiResponse<T>> {
-    // If API is disabled, return mock response
-    if (!API_ENABLED) {
-      // Add a small delay to simulate network latency
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return this.generateMockResponse<T>(config);
-    }
 
     // Check network connectivity
     await this.checkNetwork();
@@ -824,6 +910,16 @@ class ApiClient {
       ...(fetchConfig.headers as Record<string, string>),
     };
 
+    // Add default authToken header if not already provided (aligns with Postman globals)
+    if (!headers['authToken']) {
+      headers['authToken'] = DEFAULT_AUTH_TOKEN;
+    }
+
+    // Optionally include a default refreshToken header if provided via config/env
+    if (DEFAULT_REFRESH_TOKEN && !headers['refreshToken']) {
+      headers['refreshToken'] = DEFAULT_REFRESH_TOKEN;
+    }
+
     // For protected endpoints, only User Token is needed in Authorization header
     // App Token is only used for login endpoint
     if (!skipAuth && !skipAppToken) {
@@ -833,10 +929,19 @@ class ApiClient {
       }
     }
 
-    // Log request in development
-    if (__DEV__) {
-      console.log(`[API] ${fetchConfig.method || 'GET'} ${fullUrl}`);
+    // Debug: log outgoing request with curl
+    let bodyPreview: unknown = (fetchConfig as any).body;
+    if (typeof bodyPreview === 'string') {
+      try {
+        bodyPreview = JSON.parse(bodyPreview);
+      } catch {
+        // keep as string
+      }
     }
+    const method = (fetchConfig.method || 'GET').toUpperCase();
+    const curl = buildCurlCommand(method, fullUrl, headers, bodyPreview ?? undefined);
+    console.log('[API REQUEST]', { method, url: fullUrl, headers, body: bodyPreview ?? null });
+    console.log('[API REQUEST CURL]', curl);
 
     // Create request function
     const makeRequest = async (): Promise<ApiResponse<T>> => {
