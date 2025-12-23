@@ -4,6 +4,7 @@ const appJson = require('./app.json');
 
 export default ({ config }) => {
   const defaultAuthUrl = 'https://tba-authentication-dev.azurewebsites.net';
+  const defaultBaseApiUrl = 'https://tba-truckowner-dev.azurewebsites.net';
 
   const apiUrl =
     process.env.API_ENDPOINT ||
@@ -16,6 +17,11 @@ export default ({ config }) => {
     appJson.expo?.extra?.authApiUrl ||
     appJson.expo?.extra?.apiUrl ||
     defaultAuthUrl;
+
+  const baseApiUrl =
+    process.env.BASE_API_ENDPOINT ||
+    appJson.expo?.extra?.baseApiUrl ||
+    defaultBaseApiUrl;
 
   const clientKey =
     process.env.CLIENT_KEY ||
@@ -47,6 +53,7 @@ export default ({ config }) => {
       apiEnabled,
       apiUrl,
       authApiUrl,
+      baseApiUrl,
       clientKey,
       authToken,
       refreshTokenDefault,

@@ -19,6 +19,8 @@ const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiUrl as string);
 const AUTH_BASE_URL =
   (Constants.expoConfig?.extra?.authApiUrl as string) || API_BASE_URL;
+const BASE_API_URL =
+  (Constants.expoConfig?.extra?.baseApiUrl as string) || AUTH_BASE_URL;
 const AUTH_REFRESH_URL =
   (Constants.expoConfig?.extra?.authRefreshUrl as string) ||
   `${AUTH_BASE_URL}/Auth/refresh`;
@@ -142,6 +144,7 @@ interface RefreshAppTokenPayload {
 
 class ApiClient {
   public baseURL: string; // Made public for authService to access
+  public baseApiURL: string; // Base API URL for company/business endpoints
   private authBaseURL: string;
   private defaultHeaders: Record<string, string>;
   private refreshPromise: Promise<string | null> | null = null;
@@ -149,6 +152,7 @@ class ApiClient {
 
   constructor() {
     this.baseURL = API_BASE_URL;
+    this.baseApiURL = BASE_API_URL;
     this.authBaseURL = AUTH_BASE_URL;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
